@@ -24,25 +24,6 @@
     loadingLogged: false
   };
 
-  function getSessionId() {
-    var storageKey = 'dublinCleanersKioskSessionId';
-    var existing = window.sessionStorage.getItem(storageKey);
-    if (existing) {
-      return existing;
-    }
-    var randomPart = '';
-    if (window.crypto && window.crypto.getRandomValues) {
-      var values = new Uint32Array(2);
-      window.crypto.getRandomValues(values);
-      randomPart = values[0].toString(36) + values[1].toString(36);
-    } else {
-      randomPart = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    }
-    var sessionId = 'anon-' + randomPart;
-    window.sessionStorage.setItem(storageKey, sessionId);
-    return sessionId;
-  }
-
   function detectDisplayMode() {
     var width = window.innerWidth;
     var height = window.innerHeight;
@@ -202,6 +183,29 @@
     });
   }
 
+  function revealResultPanel() {
+    var panel = byId('resultPanel');
+    if (!panel || !panel.scrollIntoView) {
+      return;
+    }
+
+    window.requestAnimationFrame(function() {
+      var mode = document.body.dataset.displayMode || detectDisplayMode();
+      var width = window.innerWidth;
+      var viewportHeight = window.innerHeight;
+      var rect = panel.getBoundingClientRect();
+      var panelIsClipped = rect.top < 0 || rect.bottom > viewportHeight;
+      var shouldScroll = mode === 'mobile' || width <= 700 || panelIsClipped;
+
+      if (shouldScroll) {
+        panel.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+    });
+  }
+
   function showCategory(categoryId) {
     var category = state.payload.categories.find(function(item) {
       return item.id === categoryId;
@@ -224,6 +228,7 @@
     byId('checklistColumns').hidden = false;
     byId('resultCard').classList.remove('is-empty');
     byId('resultCard').classList.add('has-result');
+    revealResultPanel();
     logAction('category_selected', category.id);
     logAction('checklist_viewed', category.id);
     resetInactivityTimer();

@@ -316,7 +316,8 @@ test('HTML renders the portrait kiosk shell immediately without a blocking works
   assert.match(index, /Loading fresh checklist data…/);
   assert.match(index, /Your quick checklist appears here/);
   assert.doesNotMatch(index, /primary-cta/);
-  assert.doesNotMatch(scripts, /scrollIntoView/);
+  assert.match(scripts, /revealResultPanel/);
+  assert.match(scripts, /scrollIntoView/);
 });
 
 test('CSS locks the primary experience to a portrait touchscreen kiosk frame', () => {
@@ -335,13 +336,18 @@ test('CSS locks the primary experience to a portrait touchscreen kiosk frame', (
   assert.doesNotMatch(styles, /grid-template-columns:\s*repeat\(3/);
 });
 
-test('Scripts keep category selection touch-first with selected state and no keyboard dependency', () => {
+test('Scripts keep category selection touch-first with selected state, checklist reveal, and no keyboard dependency', () => {
   const scripts = fs.readFileSync(path.join(__dirname, '..', 'scripts.html'), 'utf8');
   assert.match(scripts, /card\.type = 'button'/);
   assert.match(scripts, /addEventListener\('click'/);
   assert.match(scripts, /aria-pressed/);
   assert.match(scripts, /is-selected/);
   assert.match(scripts, /requestAnimationFrame/);
+  assert.match(scripts, /showCategory\(category\.id\)/);
+  assert.match(scripts, /renderList\('selectedItems', category\.selectedItems\)/);
+  assert.match(scripts, /byId\('checklistColumns'\)\.hidden = false/);
+  assert.match(scripts, /revealResultPanel\(\)/);
+  assert.match(scripts, /panel\.scrollIntoView/);
   assert.doesNotMatch(scripts, /prompt\(/);
   assert.doesNotMatch(scripts, /<input/);
 });
@@ -383,5 +389,5 @@ test('detectDisplayMode reads viewport, pointer, touch, orientation, and updates
   assert.match(scripts, /window\.addEventListener\("resize", detectDisplayMode\)/);
   assert.match(scripts, /window\.addEventListener\("orientationchange", detectDisplayMode\)/);
   assert.match(scripts, /document\.addEventListener\("DOMContentLoaded", detectDisplayMode\)/);
-  assert.match(scripts, /displayMode: document\.body\.dataset\.displayMode/);
+  assert.doesNotMatch(scripts, /displayMode.*recordAppAction/);
 });
