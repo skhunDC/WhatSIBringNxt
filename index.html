@@ -31,12 +31,14 @@
       <div class="situation-grid card-grid" id="categoryGrid" aria-label="Situation choices"></div>
     </section>
 
-    <section class="result-panel" id="resultPanel" aria-live="polite" aria-labelledby="resultTitle">
+    <section class="result-panel" id="resultPanel" role="dialog" aria-modal="true" aria-live="polite" aria-labelledby="resultTitle" aria-describedby="resultHelper" hidden>
+      <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true"></div>
       <div class="result-card is-empty" id="resultCard">
+        <button class="modal-close-button" type="button" id="closeModalButton" aria-label="Close checklist">×</button>
         <div class="result-copy">
           <p class="eyebrow" id="resultEyebrow">Ready when you are</p>
           <h2 id="resultTitle">Your quick checklist appears here.</h2>
-          <p class="result-helper" id="resultHelper">Tap any card above. The list updates instantly with what to bring, what customers forget, and the best next step.</p>
+          <p class="result-helper" id="resultHelper">Tap any card. The checklist opens here with what to bring, what customers forget, and the best next step.</p>
         </div>
 
         <div class="checklist-columns" id="checklistColumns" hidden>
@@ -55,7 +57,7 @@
             <div class="qr-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
             <div>
               <span class="mini-label">Save this list</span>
-              <p id="saveCopy">Snap a photo of this panel before you leave.</p>
+              <p id="saveCopy">Snap a photo of this checklist before you leave.</p>
             </div>
           </button>
           <div class="next-step-card">
@@ -85,7 +87,7 @@
               <button class="reminder-cancel-button" type="button" id="cancelReminderButton">Cancel</button>
             </div>
           </form>
-          <button class="reset-button" type="button" id="backButton">Tap another situation</button>
+          <button class="reset-button" type="button" id="backButton">Choose another situation</button>
         </div>
       </div>
     </section>
