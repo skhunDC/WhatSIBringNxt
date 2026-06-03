@@ -22,6 +22,38 @@
     selectedCategoryId: ''
   };
 
+  function detectDisplayMode() {
+    var width = window.innerWidth;
+    var height = window.innerHeight;
+    var isPortrait = window.matchMedia("(orientation: portrait)").matches;
+    var hasCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+    var hasFinePointer = window.matchMedia("(pointer: fine)").matches;
+    var hasTouch = navigator.maxTouchPoints > 0;
+    var userAgent = navigator.userAgent || '';
+    var looksMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
+
+    var mode = "desktop";
+
+    if (width <= 700 && isPortrait && (hasTouch || looksMobile)) {
+      mode = "mobile";
+    } else if (height >= 1200 && width >= 700 && isPortrait && (hasCoarsePointer || hasTouch)) {
+      mode = "kiosk";
+    } else if (width > 900 && (!isPortrait || hasFinePointer)) {
+      mode = "desktop";
+    }
+
+    document.body.classList.remove("mode-kiosk", "mode-mobile", "mode-desktop");
+    document.body.classList.add("mode-" + mode);
+    document.body.dataset.displayMode = mode;
+
+    return mode;
+  }
+
+  window.detectDisplayMode = detectDisplayMode;
+  window.addEventListener("resize", detectDisplayMode);
+  window.addEventListener("orientationchange", detectDisplayMode);
+  document.addEventListener("DOMContentLoaded", detectDisplayMode);
+
   function byId(id) {
     return document.getElementById(id);
   }
