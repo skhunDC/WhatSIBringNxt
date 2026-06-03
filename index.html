@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <base target="_top">
+  <title>What Should I Bring Next? | Dublin Cleaners</title>
+  <?!= include('styles'); ?>
+</head>
+<body>
+  <div id="loadingScreen" class="loading-screen" role="status" aria-live="polite">
+    <div class="loading-card">
+      <img class="loading-logo" src="https://www.dublincleaners.com/wp-content/uploads/2024/12/Dublin-Logos-stacked.png" alt="Dublin Cleaners logo">
+      <p>Preparing your workspace…</p>
+      <div class="countdown"><span id="countdownValue">4</span></div>
+    </div>
+  </div>
+
+  <main class="app-shell" id="appShell">
+    <section class="hero" aria-labelledby="heroTitle">
+      <div class="hero-copy">
+        <p class="eyebrow">Dublin Cleaners · Established 1934</p>
+        <h1 id="heroTitle">What should you bring in next?</h1>
+        <p class="supporting">Tap your situation and get a quick checklist.</p>
+        <a class="primary-cta" href="#situations" aria-label="Choose a situation">Choose your situation</a>
+      </div>
+      <div class="hero-anchor" aria-hidden="true">
+        <div class="anchor-card">
+          <span class="anchor-icon">✦</span>
+          <strong>Concierge checklist</strong>
+          <span>Quick reminders for garments, household pieces, stains, and travel.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="situations" id="situations" aria-labelledby="situationsTitle">
+      <div class="section-heading">
+        <p class="eyebrow">Start here</p>
+        <h2 id="situationsTitle">What is happening next?</h2>
+      </div>
+      <div class="card-grid" id="categoryGrid" aria-live="polite"></div>
+    </section>
+
+    <section class="result-panel" id="resultPanel" aria-live="polite" hidden>
+      <div class="panel-topline">
+        <button class="ghost-button" type="button" id="backButton">← Pick another situation</button>
+        <span class="panel-badge">Your quick list</span>
+      </div>
+      <div class="result-card">
+        <div>
+          <p class="eyebrow" id="resultEyebrow">Selected situation</p>
+          <h2 id="resultTitle"></h2>
+        </div>
+        <div class="result-columns">
+          <div class="list-block main-list">
+            <h3>You should probably bring in:</h3>
+            <ul id="selectedItems"></ul>
+          </div>
+          <div class="list-block forgotten-list">
+            <h3>Most customers forget:</h3>
+            <ul id="forgottenItems"></ul>
+          </div>
+        </div>
+        <div class="premium-row">
+          <div>
+            <span class="mini-label">Smart add-on</span>
+            <strong id="smartAddOn"></strong>
+          </div>
+          <div>
+            <span class="mini-label">Best next step</span>
+            <strong id="nextStep"></strong>
+          </div>
+        </div>
+        <div class="save-area" aria-label="Save my list area">
+          <div>
+            <span class="mini-label">Save my list</span>
+            <p>Scan-friendly summary: snap a photo of this screen or print from the kiosk browser if enabled.</p>
+          </div>
+          <button class="secondary-button" type="button" id="saveButton">Show save reminder</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <?!= include('scripts'); ?>
+</body>
+</html>
