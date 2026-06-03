@@ -1,0 +1,203 @@
+<script>
+(function() {
+  'use strict';
+
+  var FALLBACK_PAYLOAD = {
+    appName: 'What Should I Bring Next?',
+    businessName: 'Dublin Cleaners',
+    established: '1934',
+    logoUrl: 'https://www.dublincleaners.com/wp-content/uploads/2024/12/Dublin-Logos-stacked.png',
+    categories: [
+      { id: 'wedding_event', title: 'Wedding / Event', icon: '✦', selectedItems: ['Suits', 'Dress shirts', 'Ties', 'Formal dresses', 'Wraps or shawls'], forgottenItems: ['Pocket squares', 'Dress pants with the matching jacket', 'Garment bags that need replacing'], smartAddOn: 'Alterations or professional pressing', nextStep: 'Ask us today if you need it ready before the weekend.' },
+      { id: 'spring_closet_reset', title: 'Spring Closet Reset', icon: '☼', selectedItems: ['Winter coats', 'Wool sweaters', 'Scarves', 'Comforters', 'Table linens'], forgottenItems: ['Pillow shams', 'Mattress pads', 'Light blankets'], smartAddOn: 'Coat cleaning and seasonal storage', nextStep: 'Ask us about household items before you switch seasons.' },
+      { id: 'guest_room_refresh', title: 'Guest Room Refresh', icon: '⌂', selectedItems: ['Comforters', 'Blankets', 'Bedspreads', 'Shams', 'Decorative pillows'], forgottenItems: ['Mattress pads', 'Table runners', 'Guest towels needing brightening'], smartAddOn: 'Comforters and household textile care', nextStep: 'Bring household items in before guests arrive.' },
+      { id: 'traveling_soon', title: 'Traveling Soon', icon: '✈', selectedItems: ['Vacation outfits', 'Resort wear', 'Jackets', 'Dress clothes', 'Travel laundry'], forgottenItems: ['Hats', 'Scarves', 'Packing pieces that need pressing'], smartAddOn: 'Rush service or professional pressing', nextStep: 'Ask what to clean first if you’re leaving soon.' },
+      { id: 'stain_emergency', title: 'Stain Emergency', icon: '!', selectedItems: ['Stained shirts', 'Dresses', 'Table linens', 'Jackets', 'Specialty fabrics'], forgottenItems: ['Napkins', 'Matching pieces', 'Items they tried to spot-clean at home'], smartAddOn: 'Specialty stain treatment', nextStep: 'Bring it in today and don’t apply heat.' },
+      { id: 'laundry_overload', title: 'Laundry Overload', icon: '∞', selectedItems: ['Everyday laundry', 'Kids’ clothes', 'Bedding', 'Towels', 'Workwear'], forgottenItems: ['Socks and basics', 'Gym clothes', 'Extra household loads'], smartAddOn: 'Wash and fold', nextStep: 'Ask about wash and fold if you want your week back.' }
+    ]
+  };
+
+  var state = {
+    payload: FALLBACK_PAYLOAD,
+    readyDelay: Math.floor(Math.random() * 3) + 3,
+    loaderDone: false,
+    payloadDone: false
+  };
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function setText(node, value) {
+    if (node) {
+      node.textContent = value || '';
+    }
+  }
+
+  function clearNode(node) {
+    while (node && node.firstChild) {
+      node.removeChild(node.firstChild);
+    }
+  }
+
+  function makeRequest(action, category) {
+    return {
+      action: action,
+      category: category || '',
+      deviceLabel: window.localStorage.getItem('dublinCleanersDeviceLabel') || 'In-store touchscreen',
+      userAgent: window.navigator.userAgent || ''
+    };
+  }
+
+  function logAction(action, category) {
+    if (!window.google || !google.script || !google.script.run) {
+      return;
+    }
+    google.script.run
+      .withFailureHandler(function(error) {
+        window.console.warn('Kiosk activity was not logged.', error && error.message ? error.message : error);
+      })
+      .recordAppAction(makeRequest(action, category));
+  }
+
+  function renderCategories(categories) {
+    var grid = byId('categoryGrid');
+    var printGrid = byId('printCategories');
+    var target = grid || printGrid;
+    if (!target) {
+      return;
+    }
+    clearNode(target);
+    categories.forEach(function(category) {
+      var card = document.createElement(grid ? 'button' : 'article');
+      card.className = 'situation-card';
+      if (grid) {
+        card.type = 'button';
+        card.setAttribute('aria-label', 'Show checklist for ' + category.title);
+        card.addEventListener('click', function() {
+          showCategory(category.id);
+        });
+      }
+
+      var icon = document.createElement('span');
+      icon.className = 'situation-icon';
+      icon.textContent = category.icon;
+
+      var title = document.createElement('strong');
+      title.textContent = category.title;
+
+      var hint = document.createElement('span');
+      hint.textContent = category.selectedItems.slice(0, 3).join(' · ');
+
+      card.appendChild(icon);
+      card.appendChild(title);
+      card.appendChild(hint);
+      target.appendChild(card);
+    });
+  }
+
+  function renderList(id, items) {
+    var list = byId(id);
+    clearNode(list);
+    items.forEach(function(item) {
+      var li = document.createElement('li');
+      li.textContent = item;
+      list.appendChild(li);
+    });
+  }
+
+  function showCategory(categoryId) {
+    var category = state.payload.categories.find(function(item) {
+      return item.id === categoryId;
+    });
+    if (!category) {
+      return;
+    }
+
+    setText(byId('resultEyebrow'), 'Selected situation');
+    setText(byId('resultTitle'), category.title);
+    setText(byId('smartAddOn'), category.smartAddOn);
+    setText(byId('nextStep'), category.nextStep);
+    renderList('selectedItems', category.selectedItems);
+    renderList('forgottenItems', category.forgottenItems);
+
+    byId('resultPanel').hidden = false;
+    byId('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    logAction('category_selected', category.id);
+  }
+
+  function setupControls() {
+    var backButton = byId('backButton');
+    var saveButton = byId('saveButton');
+    if (backButton) {
+      backButton.addEventListener('click', function() {
+        byId('resultPanel').hidden = true;
+        byId('situations').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+    if (saveButton) {
+      saveButton.addEventListener('click', function() {
+        saveButton.textContent = 'Photo-ready reminder shown';
+        logAction('save_list_opened', '');
+      });
+    }
+  }
+
+  function startCountdown() {
+    var remaining = state.readyDelay;
+    setText(byId('countdownValue'), String(remaining));
+    var timer = window.setInterval(function() {
+      remaining -= 1;
+      setText(byId('countdownValue'), String(Math.max(remaining, 0)));
+      if (remaining <= 0) {
+        window.clearInterval(timer);
+        state.loaderDone = true;
+        maybeHideLoader();
+      }
+    }, 1000);
+  }
+
+  function maybeHideLoader() {
+    if (!state.loaderDone || !state.payloadDone) {
+      return;
+    }
+    var loadingScreen = byId('loadingScreen');
+    if (loadingScreen) {
+      loadingScreen.classList.add('is-hidden');
+      window.setTimeout(function() {
+        loadingScreen.setAttribute('aria-hidden', 'true');
+      }, 540);
+    }
+  }
+
+  function hydrateAfterPaint() {
+    window.requestAnimationFrame(function() {
+      renderCategories(state.payload.categories);
+      setupControls();
+      if (!window.google || !google.script || !google.script.run) {
+        state.payloadDone = true;
+        maybeHideLoader();
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(payload) {
+          state.payload = payload || FALLBACK_PAYLOAD;
+          renderCategories(state.payload.categories);
+          state.payloadDone = true;
+          maybeHideLoader();
+          logAction('app_ready', '');
+        })
+        .withFailureHandler(function() {
+          state.payloadDone = true;
+          maybeHideLoader();
+        })
+        .getAppPayload();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    startCountdown();
+    hydrateAfterPaint();
+  });
+}());
+</script>
