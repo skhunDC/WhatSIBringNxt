@@ -82,8 +82,8 @@ function loadCode() {
     spreadsheets: {},
     createCount: 0,
     locks: 0,
-    calendarEvents: [],
-    failCalendarCreate: false,
+    sentEmails: [],
+    failEmailSend: false,
     lockUnavailable: false
   };
   const context = {
@@ -95,6 +95,9 @@ function loadCode() {
     Utilities: {
       getUuid() {
         return `uuid-${stores.createCount}-${Math.random().toString(16).slice(2)}`;
+      },
+      formatDate(date) {
+        return `${date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' })} at ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })}`;
       }
     },
     LockService: {
@@ -128,27 +131,17 @@ function loadCode() {
         };
       }
     },
-    CalendarApp: {
-      getDefaultCalendar() {
-        return {
-          createEvent(title, start, end, options) {
-            if (stores.failCalendarCreate) {
-              throw new Error('Calendar send failed');
-            }
-            const event = {
-              title,
-              start,
-              end,
-              options,
-              id: `event-${stores.calendarEvents.length + 1}`,
-              getId() {
-                return this.id;
-              }
-            };
-            stores.calendarEvents.push(event);
-            return event;
-          }
-        };
+    MailApp: {
+      sendEmail(message) {
+        if (stores.failEmailSend) {
+          throw new Error('Email send failed');
+        }
+        stores.sentEmails.push(message);
+      }
+    },
+    Session: {
+      getScriptTimeZone() {
+        return 'America/New_York';
       }
     },
     SpreadsheetApp: {
@@ -218,7 +211,8 @@ test('manifest supports public kiosk access without login', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'appsscript.json'), 'utf8'));
   assert.strictEqual(manifest.webapp.executeAs, 'USER_DEPLOYING');
   assert.strictEqual(manifest.webapp.access, 'ANYONE_ANONYMOUS');
-  assert.ok(manifest.oauthScopes.includes('https://www.googleapis.com/auth/calendar'));
+  assert.ok(manifest.oauthScopes.includes('https://www.googleapis.com/auth/script.send_mail'));
+  assert.ok(!manifest.oauthScopes.includes('https://www.googleapis.com/auth/calendar'));
   assert.ok(manifest.oauthScopes.includes('https://www.googleapis.com/auth/spreadsheets'));
   assert.ok(manifest.oauthScopes.includes('https://www.googleapis.com/auth/script.storage'));
 });
@@ -347,7 +341,7 @@ test('anonymous-only logging rejects customer details', () => {
 
 
 
-test('email reminder creates a Calendar invite and logs only the email domain', () => {
+test('email reminder sends an email and logs only the email domain', () => {
   const app = loadCode();
   const response = app.sendChecklistReminder({
     email: 'Customer@TestExample.com',
@@ -357,19 +351,18 @@ test('email reminder creates a Calendar invite and logs only the email domain', 
   });
   assert.strictEqual(response.ok, true);
   assert.strictEqual(response.deliveryStatus, 'sent');
-  assert.strictEqual(app.__stores.calendarEvents.length, 1);
-  const event = app.__stores.calendarEvents[0];
-  assert.strictEqual(event.title, 'Dublin Cleaners Reminder: Bring These Items');
-  assert.strictEqual(event.options.guests, 'customer@testexample.com');
-  assert.strictEqual(event.options.sendInvites, true);
-  assert.match(event.options.description, /Selected checklist: Stain Emergency/);
-  assert.match(event.options.description, /Forgotten items:/);
-  assert.match(event.options.description, /Smart add-on: Specialty stain treatment/);
-  assert.match(event.options.description, /Best next step: Bring it in today and don’t apply heat\./);
-  assert.match(event.options.description, /Dublin Cleaners phone: \(614\) 764-9934/);
-  assert.match(event.options.description, /Dublin Cleaners address: 6845 Caine Rd/);
-  assert.strictEqual(event.start.getHours(), 9);
-  assert.strictEqual(event.start.getMinutes(), 0);
+  assert.strictEqual(app.__stores.sentEmails.length, 1);
+  const email = app.__stores.sentEmails[0];
+  assert.strictEqual(email.to, 'customer@testexample.com');
+  assert.strictEqual(email.subject, 'Dublin Cleaners Reminder: Bring These Items');
+  assert.strictEqual(email.name, 'Dublin Cleaners');
+  assert.match(email.body, /Want this on your calendar\? Add a personal calendar reminder/);
+  assert.match(email.body, /Selected checklist: Stain Emergency/);
+  assert.match(email.body, /Forgotten items:/);
+  assert.match(email.body, /Smart add-on: Specialty stain treatment/);
+  assert.match(email.body, /Best next step: Bring it in today and don’t apply heat\./);
+  assert.match(email.body, /Dublin Cleaners phone: \(614\) 764-9934/);
+  assert.match(email.body, /Dublin Cleaners address: 6845 Caine Rd/);
 
   const spreadsheet = app.__stores.spreadsheets[app.__stores.properties[app.APP_CONFIG.spreadsheetPropertyKey]];
   const reminderRow = spreadsheet._sheets[app.APP_CONFIG.reminderLogSheetName].state.rows[1];
@@ -377,7 +370,7 @@ test('email reminder creates a Calendar invite and logs only the email domain', 
   assert.strictEqual(reminderRow[3], 'Stain Emergency');
   assert.strictEqual(reminderRow[5], 'testexample.com');
   assert.strictEqual(reminderRow[6], 'sent');
-  assert.strictEqual(reminderRow[7], 'event-1');
+  assert.strictEqual(reminderRow[7], 'email');
   assert.notStrictEqual(JSON.stringify(reminderRow).includes('Customer@TestExample.com'), true);
   assert.strictEqual(spreadsheet._sheets[app.APP_CONFIG.usageLogSheetName].getLastRow(), 1);
 });
@@ -395,9 +388,9 @@ test('email reminder validates email, category, and reminder date server-side', 
   }, /Invalid reminder date/);
 });
 
-test('email reminder logs failed Calendar sends without storing the full email', () => {
+test('email reminder logs failed email sends without storing the full email', () => {
   const app = loadCode();
-  app.__stores.failCalendarCreate = true;
+  app.__stores.failEmailSend = true;
   const response = app.sendChecklistReminder({
     email: 'customer@example.com',
     category: 'guest_room_refresh',
@@ -426,7 +419,7 @@ test('email reminder logging falls back instead of blocking when the usage lock 
     sessionId: 'anon-lock-busy'
   });
   assert.strictEqual(response.ok, true);
-  assert.strictEqual(app.__stores.calendarEvents.length, 1);
+  assert.strictEqual(app.__stores.sentEmails.length, 1);
   const spreadsheet = app.__stores.spreadsheets[app.__stores.properties[app.APP_CONFIG.spreadsheetPropertyKey]];
   const reminderRow = spreadsheet._sheets[app.APP_CONFIG.reminderLogSheetName].state.rows[1];
   assert.strictEqual(reminderRow[2], 'anon-lock-busy');
@@ -495,6 +488,7 @@ test('Scripts keep category selection touch-first with selected state, modal che
   assert.match(scripts, /resetResult\('modal_closed'\)/);
   assert.doesNotMatch(scripts, /prompt\(/);
   assert.match(scripts, /reminderDate/);
+  assert.doesNotMatch(scripts, /calendar invite/i);
 });
 
 
