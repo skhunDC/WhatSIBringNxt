@@ -283,8 +283,19 @@
     }
     if (submitButton) {
       submitButton.disabled = isSubmitting;
-      submitButton.textContent = isSubmitting ? 'Sending…' : 'Send calendar invite';
+      submitButton.textContent = isSubmitting ? 'Sending…' : 'Send email reminder';
     }
+  }
+
+  function getReminderErrorMessage(error) {
+    var errorText = String(error && (error.error || error.message || error) || '');
+    if (errorText.indexOf('INVALID_EMAIL') !== -1) {
+      return 'Please enter a valid email address.';
+    }
+    if (errorText.indexOf('send_failed') !== -1) {
+      return 'Email service is temporarily unavailable. Please ask staff for help.';
+    }
+    return 'We couldn’t send the reminder. Please try again.';
   }
 
   function handleReminderFailure(error, requestId) {
@@ -292,10 +303,7 @@
       return;
     }
     setReminderSubmitting(false);
-    var message = error && String(error.message || error).indexOf('INVALID_EMAIL') !== -1
-      ? 'Please enter a valid email address.'
-      : 'We couldn’t send the reminder. Please try again.';
-    setReminderStatus(message, 'error');
+    setReminderStatus(getReminderErrorMessage(error), 'error');
   }
 
   function startReminderTimeout(requestId) {
@@ -337,7 +345,7 @@
     state.reminderRequestId = requestId;
     setReminderSubmitting(true);
     startReminderTimeout(requestId);
-    setReminderStatus('Sending your calendar invite…', 'pending');
+    setReminderStatus('Sending your email reminder…', 'pending');
     google.script.run
       .withSuccessHandler(function(response) {
         if (requestId !== state.reminderRequestId || !state.reminderSubmitting) {
@@ -345,11 +353,11 @@
         }
         setReminderSubmitting(false);
         if (!response || response.ok !== true) {
-          setReminderStatus('We couldn’t send the reminder. Please try again.', 'error');
+          setReminderStatus(getReminderErrorMessage(response), 'error');
           return;
         }
         clearReminderEmail();
-        setReminderStatus('Reminder sent. Please check your email for the calendar invite.', 'success');
+        setReminderStatus('Reminder sent. Please check your email.', 'success');
         window.setTimeout(function() {
           closeReminderForm();
         }, 2200);
