@@ -97,6 +97,7 @@ var APP_CONFIG = Object.freeze({
     'deliveryReference'
   ],
   reminderTitle: 'Dublin Cleaners Reminder: Bring These Items',
+  timeZone: 'America/New_York',
   businessPhone: '(614) 764-9934',
   businessAddress: '6845 Caine Rd'
 });
@@ -246,11 +247,11 @@ function sendChecklistReminder(request) {
   } catch (error) {
     deliveryStatus = 'failed';
     deliveryReference = '';
-    appendReminderLogRow_(buildReminderLogRow_(id, timestamp, cleanRequest, category, reminderDate, deliveryStatus, deliveryReference));
+    tryAppendReminderLogRow_(buildReminderLogRow_(id, timestamp, cleanRequest, category, reminderDate, deliveryStatus, deliveryReference));
     return { ok: false, error: 'send_failed' };
   }
 
-  appendReminderLogRow_(buildReminderLogRow_(id, timestamp, cleanRequest, category, reminderDate, deliveryStatus, deliveryReference));
+  tryAppendReminderLogRow_(buildReminderLogRow_(id, timestamp, cleanRequest, category, reminderDate, deliveryStatus, deliveryReference));
   return {
     ok: true,
     id: id,
@@ -338,6 +339,15 @@ function appendLogRow_(row) {
 }
 
 
+function tryAppendReminderLogRow_(row) {
+  try {
+    appendReminderLogRow_(row);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 function appendReminderLogRow_(row) {
   var lock = LockService.getScriptLock();
   var hasLock = false;
@@ -378,12 +388,12 @@ function buildReminderLogRow_(id, timestamp, request, category, reminderDate, de
 }
 
 function sendReminderEmail_(email, category, reminderDate) {
-  MailApp.sendEmail({
-    to: email,
-    subject: APP_CONFIG.reminderTitle,
-    body: buildReminderEmailBody_(category, reminderDate),
-    name: APP_CONFIG.businessName
-  });
+  MailApp.sendEmail(
+    email,
+    APP_CONFIG.reminderTitle,
+    buildReminderEmailBody_(category, reminderDate),
+    { name: APP_CONFIG.businessName }
+  );
 }
 
 function buildReminderEmailBody_(category, reminderDate) {
@@ -410,7 +420,7 @@ function buildReminderEmailBody_(category, reminderDate) {
 
 
 function formatReminderDate_(date) {
-  return Utilities.formatDate(date, Session.getScriptTimeZone(), "EEEE, MMMM d, yyyy 'at' h:mm a");
+  return Utilities.formatDate(date, APP_CONFIG.timeZone, "EEEE, MMMM d, yyyy 'at' h:mm a");
 }
 
 function normalizeReminderRequest_(request) {

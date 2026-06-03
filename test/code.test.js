@@ -132,16 +132,20 @@ function loadCode() {
       }
     },
     MailApp: {
-      sendEmail(message) {
+      sendEmail(recipientOrMessage, subject, body, options) {
         if (stores.failEmailSend) {
           throw new Error('Email send failed');
         }
-        stores.sentEmails.push(message);
-      }
-    },
-    Session: {
-      getScriptTimeZone() {
-        return 'America/New_York';
+        if (typeof recipientOrMessage === 'object') {
+          stores.sentEmails.push(recipientOrMessage);
+          return;
+        }
+        stores.sentEmails.push({
+          to: recipientOrMessage,
+          subject,
+          body,
+          name: options && options.name
+        });
       }
     },
     SpreadsheetApp: {
@@ -409,6 +413,24 @@ test('email reminder logs failed email sends without storing the full email', ()
   assert.notStrictEqual(JSON.stringify(reminderRow).includes('customer@example.com'), true);
 });
 
+
+test('email reminder still succeeds when reminder logging is unavailable', () => {
+  const app = loadCode();
+  app.appendReminderLogRow_ = () => {
+    throw new Error('Spreadsheet temporarily unavailable');
+  };
+  const response = app.sendChecklistReminder({
+    email: 'customer@example.com',
+    category: 'wedding_event',
+    reminderDate: 'tomorrow',
+    sessionId: 'anon-log-failed-reminder'
+  });
+  assert.strictEqual(response.ok, true);
+  assert.strictEqual(response.deliveryStatus, 'sent');
+  assert.strictEqual(app.__stores.sentEmails.length, 1);
+  assert.strictEqual(app.__stores.sentEmails[0].to, 'customer@example.com');
+});
+
 test('email reminder logging falls back instead of blocking when the usage lock is busy', () => {
   const app = loadCode();
   app.__stores.lockUnavailable = true;
@@ -479,6 +501,7 @@ test('Scripts keep category selection touch-first with selected state, modal che
   assert.match(scripts, /sendChecklistReminder/);
   assert.match(scripts, /Please enter a valid email address\./);
   assert.match(scripts, /We couldn’t send the reminder\. Please try again\./);
+  assert.match(scripts, /Email service is temporarily unavailable\. Please ask staff for help\./);
   assert.match(scripts, /REMINDER_SEND_TIMEOUT_MS = 18000/);
   assert.match(scripts, /startReminderTimeout/);
   assert.match(scripts, /state\.reminderRequestId/);

@@ -287,15 +287,23 @@
     }
   }
 
+  function getReminderErrorMessage(error) {
+    var errorText = String(error && (error.error || error.message || error) || '');
+    if (errorText.indexOf('INVALID_EMAIL') !== -1) {
+      return 'Please enter a valid email address.';
+    }
+    if (errorText.indexOf('send_failed') !== -1) {
+      return 'Email service is temporarily unavailable. Please ask staff for help.';
+    }
+    return 'We couldn’t send the reminder. Please try again.';
+  }
+
   function handleReminderFailure(error, requestId) {
     if (requestId && requestId !== state.reminderRequestId) {
       return;
     }
     setReminderSubmitting(false);
-    var message = error && String(error.message || error).indexOf('INVALID_EMAIL') !== -1
-      ? 'Please enter a valid email address.'
-      : 'We couldn’t send the reminder. Please try again.';
-    setReminderStatus(message, 'error');
+    setReminderStatus(getReminderErrorMessage(error), 'error');
   }
 
   function startReminderTimeout(requestId) {
@@ -345,7 +353,7 @@
         }
         setReminderSubmitting(false);
         if (!response || response.ok !== true) {
-          setReminderStatus('We couldn’t send the reminder. Please try again.', 'error');
+          setReminderStatus(getReminderErrorMessage(response), 'error');
           return;
         }
         clearReminderEmail();
