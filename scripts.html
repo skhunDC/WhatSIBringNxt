@@ -17,11 +17,16 @@
     ]
   };
 
+  var REMINDER_SEND_TIMEOUT_MS = 18000;
+
   var state = {
     payload: FALLBACK_PAYLOAD,
     selectedCategoryId: '',
     inactivityTimer: 0,
-    loadingLogged: false
+    loadingLogged: false,
+    reminderSubmitting: false,
+    reminderTimeout: 0,
+    reminderRequestId: 0
   };
 
   function clampNumber(value, min, max) {
@@ -200,6 +205,166 @@
     enqueueLog(action, category);
   }
 
+
+  function getSelectedCategory() {
+    return state.payload.categories.find(function(item) {
+      return item.id === state.selectedCategoryId;
+    }) || null;
+  }
+
+  function setReminderStatus(message, type) {
+    var status = byId('reminderStatus');
+    if (!status) {
+      return;
+    }
+    status.textContent = message || '';
+    status.dataset.status = type || '';
+  }
+
+  function clearReminderEmail() {
+    var email = byId('reminderEmail');
+    if (email) {
+      email.value = '';
+    }
+  }
+
+  function closeReminderForm() {
+    var form = byId('reminderForm');
+    var openButton = byId('openReminderButton');
+    if (form) {
+      form.hidden = true;
+    }
+    if (openButton && state.selectedCategoryId) {
+      openButton.hidden = false;
+    }
+    state.reminderSubmitting = false;
+    state.reminderRequestId += 1;
+    clearReminderTimeout();
+    setReminderStatus('', '');
+    clearReminderEmail();
+  }
+
+  function openReminderForm() {
+    var form = byId('reminderForm');
+    var openButton = byId('openReminderButton');
+    var email = byId('reminderEmail');
+    if (!state.selectedCategoryId || !form) {
+      return;
+    }
+    form.hidden = false;
+    if (openButton) {
+      openButton.hidden = true;
+    }
+    setReminderStatus('', '');
+    if (email) {
+      email.focus();
+    }
+    resetInactivityTimer();
+  }
+
+  function getSelectedReminderDate() {
+    var selected = document.querySelector('input[name="reminderDate"]:checked');
+    return selected ? selected.value : 'tomorrow';
+  }
+
+  function clearReminderTimeout() {
+    if (state.reminderTimeout) {
+      window.clearTimeout(state.reminderTimeout);
+      state.reminderTimeout = 0;
+    }
+  }
+
+  function setReminderSubmitting(isSubmitting) {
+    var submitButton = document.querySelector('.reminder-submit-button');
+    state.reminderSubmitting = isSubmitting;
+    if (!isSubmitting) {
+      clearReminderTimeout();
+    }
+    if (submitButton) {
+      submitButton.disabled = isSubmitting;
+      submitButton.textContent = isSubmitting ? 'Sending…' : 'Send calendar invite';
+    }
+  }
+
+  function handleReminderFailure(error, requestId) {
+    if (requestId && requestId !== state.reminderRequestId) {
+      return;
+    }
+    setReminderSubmitting(false);
+    var message = error && String(error.message || error).indexOf('INVALID_EMAIL') !== -1
+      ? 'Please enter a valid email address.'
+      : 'We couldn’t send the reminder. Please try again.';
+    setReminderStatus(message, 'error');
+  }
+
+  function startReminderTimeout(requestId) {
+    clearReminderTimeout();
+    state.reminderTimeout = window.setTimeout(function() {
+      if (requestId !== state.reminderRequestId || !state.reminderSubmitting) {
+        return;
+      }
+      handleReminderFailure(null, requestId);
+    }, REMINDER_SEND_TIMEOUT_MS);
+  }
+
+  function submitReminder(event) {
+    event.preventDefault();
+    if (state.reminderSubmitting) {
+      return;
+    }
+
+    var category = getSelectedCategory();
+    var emailInput = byId('reminderEmail');
+    var email = emailInput ? emailInput.value : '';
+    if (!category) {
+      closeReminderForm();
+      return;
+    }
+    if (!email) {
+      setReminderStatus('Please enter a valid email address.', 'error');
+      if (emailInput) {
+        emailInput.focus();
+      }
+      return;
+    }
+    if (!window.google || !google.script || !google.script.run) {
+      setReminderStatus('We couldn’t send the reminder. Please try again.', 'error');
+      return;
+    }
+
+    var requestId = state.reminderRequestId + 1;
+    state.reminderRequestId = requestId;
+    setReminderSubmitting(true);
+    startReminderTimeout(requestId);
+    setReminderStatus('Sending your calendar invite…', 'pending');
+    google.script.run
+      .withSuccessHandler(function(response) {
+        if (requestId !== state.reminderRequestId || !state.reminderSubmitting) {
+          return;
+        }
+        setReminderSubmitting(false);
+        if (!response || response.ok !== true) {
+          setReminderStatus('We couldn’t send the reminder. Please try again.', 'error');
+          return;
+        }
+        clearReminderEmail();
+        setReminderStatus('Reminder sent. Please check your email for the calendar invite.', 'success');
+        window.setTimeout(function() {
+          closeReminderForm();
+        }, 2200);
+      })
+      .withFailureHandler(function(error) {
+        handleReminderFailure(error, requestId);
+      })
+      .sendChecklistReminder({
+        email: email,
+        category: category.id,
+        reminderDate: getSelectedReminderDate(),
+        sessionId: getSessionId()
+      });
+    resetInactivityTimer();
+  }
+
   function resetInactivityTimer() {
     if (state.inactivityTimer) {
       window.clearTimeout(state.inactivityTimer);
@@ -328,6 +493,7 @@
     }
 
     state.selectedCategoryId = category.id;
+    closeReminderForm();
     updateSelectedCards(category.id);
     setText(byId('resultEyebrow'), 'Selected situation');
     setText(byId('resultTitle'), category.title);
@@ -339,6 +505,7 @@
     renderList('forgottenItems', category.forgottenItems);
 
     byId('checklistColumns').hidden = false;
+    byId('openReminderButton').hidden = false;
     byId('resultCard').classList.remove('is-empty');
     byId('resultCard').classList.add('has-result');
     revealResultPanel();
@@ -360,6 +527,8 @@
     clearNode(byId('selectedItems'));
     clearNode(byId('forgottenItems'));
     byId('checklistColumns').hidden = true;
+    byId('openReminderButton').hidden = true;
+    closeReminderForm();
     byId('resultCard').classList.add('is-empty');
     byId('resultCard').classList.remove('has-result');
     if (reason && previousCategoryId) {
@@ -383,6 +552,25 @@
         logAction('save_list_opened', state.selectedCategoryId);
         resetInactivityTimer();
       });
+    }
+
+
+    var openReminderButton = byId('openReminderButton');
+    if (openReminderButton) {
+      openReminderButton.addEventListener('click', openReminderForm);
+    }
+
+    var cancelReminderButton = byId('cancelReminderButton');
+    if (cancelReminderButton) {
+      cancelReminderButton.addEventListener('click', function() {
+        closeReminderForm();
+        resetInactivityTimer();
+      });
+    }
+
+    var reminderForm = byId('reminderForm');
+    if (reminderForm) {
+      reminderForm.addEventListener('submit', submitReminder);
     }
   }
 

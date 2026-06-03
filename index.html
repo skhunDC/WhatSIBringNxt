@@ -63,6 +63,28 @@
             <strong id="nextStep">Pick a situation to see your counter-ready reminder.</strong>
             <small id="smartAddOn">No form fields. No keyboard needed.</small>
           </div>
+          <button class="reminder-open-button" type="button" id="openReminderButton" hidden>Email me a reminder</button>
+          <form class="reminder-form" id="reminderForm" hidden novalidate aria-label="Email reminder form">
+            <div class="reminder-form-copy">
+              <span class="mini-label">Optional reminder</span>
+              <p>Email only. No name, phone, or sign-in. We use it only to send this calendar reminder.</p>
+            </div>
+            <label class="email-label" for="reminderEmail">Email address</label>
+            <input class="email-input" id="reminderEmail" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com">
+            <fieldset class="reminder-date-fieldset">
+              <legend>When should we remind you?</legend>
+              <div class="reminder-date-buttons" id="reminderDateButtons">
+                <label><input type="radio" name="reminderDate" value="tomorrow" checked><span>Tomorrow</span></label>
+                <label><input type="radio" name="reminderDate" value="weekend"><span>This weekend</span></label>
+                <label><input type="radio" name="reminderDate" value="next_week"><span>Next week</span></label>
+              </div>
+            </fieldset>
+            <p class="reminder-status" id="reminderStatus" role="status" aria-live="polite"></p>
+            <div class="reminder-form-actions">
+              <button class="reminder-submit-button" type="submit">Send calendar invite</button>
+              <button class="reminder-cancel-button" type="button" id="cancelReminderButton">Cancel</button>
+            </div>
+          </form>
           <button class="reset-button" type="button" id="backButton">Tap another situation</button>
         </div>
       </div>
