@@ -7,50 +7,37 @@
   <?!= include('styles'); ?>
 </head>
 <body>
-  <div id="loadingScreen" class="loading-screen" role="status" aria-live="polite">
-    <div class="loading-card">
-      <img class="loading-logo" src="https://www.dublincleaners.com/wp-content/uploads/2024/12/Dublin-Logos-stacked.png" alt="Dublin Cleaners logo">
-      <p>Preparing your workspace…</p>
-      <div class="countdown"><span id="countdownValue">4</span></div>
+  <!-- Important: This is not a desktop web app. Design and code it as a portrait-first vertical touchscreen kiosk for a 1080×1920 in-store monitor. -->
+  <main class="kiosk-shell" id="appShell" aria-labelledby="heroTitle">
+    <div id="loadingScreen" class="loading-pill" role="status" aria-live="polite">
+      <span class="loading-dot" aria-hidden="true"></span>
+      Loading fresh checklist data…
     </div>
-  </div>
 
-  <main class="app-shell" id="appShell">
-    <section class="hero" aria-labelledby="heroTitle">
-      <div class="hero-copy">
-        <p class="eyebrow">Dublin Cleaners · Established 1934</p>
-        <h1 id="heroTitle">What should you bring in next?</h1>
-        <p class="supporting">Tap your situation and get a quick checklist.</p>
-        <a class="primary-cta" href="#situations" aria-label="Choose a situation">Choose your situation</a>
-      </div>
-      <div class="hero-anchor" aria-hidden="true">
-        <div class="anchor-card">
-          <span class="anchor-icon">✦</span>
-          <strong>Concierge checklist</strong>
-          <span>Quick reminders for garments, household pieces, stains, and travel.</span>
-        </div>
-      </div>
+    <section class="kiosk-hero" aria-label="Dublin Cleaners kiosk introduction">
+      <img class="brand-logo" src="https://www.dublincleaners.com/wp-content/uploads/2024/12/Dublin-Logos-stacked.png" alt="Dublin Cleaners logo">
+      <p class="eyebrow">Dublin Cleaners · Established 1934</p>
+      <h1 id="heroTitle">What Should I Bring Next?</h1>
+      <p class="supporting">Tap your situation and get a quick checklist.</p>
     </section>
 
-    <section class="situations" id="situations" aria-labelledby="situationsTitle">
+    <section class="kiosk-situations" id="situations" aria-labelledby="situationsTitle">
       <div class="section-heading">
-        <p class="eyebrow">Start here</p>
+        <p class="eyebrow">Choose one</p>
         <h2 id="situationsTitle">What is happening next?</h2>
       </div>
-      <div class="card-grid" id="categoryGrid" aria-live="polite"></div>
+      <div class="card-grid" id="categoryGrid" aria-label="Situation choices"></div>
     </section>
 
-    <section class="result-panel" id="resultPanel" aria-live="polite" hidden>
-      <div class="panel-topline">
-        <button class="ghost-button" type="button" id="backButton">← Pick another situation</button>
-        <span class="panel-badge">Your quick list</span>
-      </div>
-      <div class="result-card">
-        <div>
-          <p class="eyebrow" id="resultEyebrow">Selected situation</p>
-          <h2 id="resultTitle"></h2>
+    <section class="result-panel" id="resultPanel" aria-live="polite" aria-labelledby="resultTitle">
+      <div class="result-card is-empty" id="resultCard">
+        <div class="result-copy">
+          <p class="eyebrow" id="resultEyebrow">Ready when you are</p>
+          <h2 id="resultTitle">Your quick checklist appears here.</h2>
+          <p class="result-helper" id="resultHelper">Tap any card above. The list updates instantly with what to bring, what customers forget, and the best next step.</p>
         </div>
-        <div class="result-columns">
+
+        <div class="checklist-columns" id="checklistColumns" hidden>
           <div class="list-block main-list">
             <h3>You should probably bring in:</h3>
             <ul id="selectedItems"></ul>
@@ -60,22 +47,21 @@
             <ul id="forgottenItems"></ul>
           </div>
         </div>
-        <div class="premium-row">
-          <div>
-            <span class="mini-label">Smart add-on</span>
-            <strong id="smartAddOn"></strong>
+
+        <div class="result-actions">
+          <div class="save-card" aria-label="Save this list reminder">
+            <div class="qr-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+            <div>
+              <span class="mini-label">Save this list</span>
+              <p id="saveCopy">Snap a photo of this panel before you leave.</p>
+            </div>
           </div>
-          <div>
+          <div class="next-step-card">
             <span class="mini-label">Best next step</span>
-            <strong id="nextStep"></strong>
+            <strong id="nextStep">Pick a situation to see your counter-ready reminder.</strong>
+            <small id="smartAddOn">No form fields. No keyboard needed.</small>
           </div>
-        </div>
-        <div class="save-area" aria-label="Save my list area">
-          <div>
-            <span class="mini-label">Save my list</span>
-            <p>Scan-friendly summary: snap a photo of this screen or print from the kiosk browser if enabled.</p>
-          </div>
-          <button class="secondary-button" type="button" id="saveButton">Show save reminder</button>
+          <button class="reset-button" type="button" id="backButton">Tap another situation</button>
         </div>
       </div>
     </section>

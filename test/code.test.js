@@ -190,6 +190,7 @@ test('payload shape contains six complete categories and no private sheet id', (
     assert.ok(category.title);
     assert.strictEqual(category.selectedItems.length, 5);
     assert.strictEqual(category.forgottenItems.length, 3);
+    assert.ok(category.helperText);
     assert.ok(category.smartAddOn);
     assert.ok(category.nextStep);
   });
@@ -264,10 +265,37 @@ test('anonymous-only logging rejects customer details', () => {
   }, /Customer details are not collected/);
 });
 
-test('HTML includes immediate loading screen and countdown message', () => {
+test('HTML renders the portrait kiosk shell immediately without a blocking workspace screen', () => {
   const index = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const scripts = fs.readFileSync(path.join(__dirname, '..', 'scripts.html'), 'utf8');
-  assert.match(index, /loadingScreen/);
-  assert.match(index, /Preparing your workspace…/);
-  assert.match(scripts, /Math\.floor\(Math\.random\(\) \* 3\) \+ 3/);
+  assert.match(index, /portrait-first vertical touchscreen kiosk for a 1080×1920/);
+  assert.match(index, /class=\"kiosk-shell\"/);
+  assert.match(index, /Loading fresh checklist data…/);
+  assert.match(index, /Your quick checklist appears here/);
+  assert.doesNotMatch(index, /primary-cta/);
+  assert.doesNotMatch(scripts, /scrollIntoView/);
+});
+
+test('CSS locks the primary experience to a portrait touchscreen kiosk frame', () => {
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'styles.html'), 'utf8');
+  assert.match(styles, /--kiosk-width:\s*1080px/);
+  assert.match(styles, /max-width:\s*var\(--kiosk-width\)/);
+  assert.match(styles, /min-height:\s*100vh/);
+  assert.match(styles, /grid-template-rows:\s*20svh 55svh 25svh/);
+  assert.match(styles, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /--tap:\s*72px/);
+  assert.match(styles, /touch-action:\s*manipulation/);
+  assert.match(styles, /user-select:\s*none/);
+  assert.doesNotMatch(styles, /grid-template-columns:\s*repeat\(3/);
+});
+
+test('Scripts keep category selection touch-first with selected state and no keyboard dependency', () => {
+  const scripts = fs.readFileSync(path.join(__dirname, '..', 'scripts.html'), 'utf8');
+  assert.match(scripts, /card\.type = 'button'/);
+  assert.match(scripts, /addEventListener\('click'/);
+  assert.match(scripts, /aria-pressed/);
+  assert.match(scripts, /is-selected/);
+  assert.match(scripts, /requestAnimationFrame/);
+  assert.doesNotMatch(scripts, /prompt\(/);
+  assert.doesNotMatch(scripts, /<input/);
 });
