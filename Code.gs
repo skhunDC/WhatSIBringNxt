@@ -14,6 +14,7 @@ var APP_CONFIG = Object.freeze({
   sheetName: 'Usage Log',
   dailySummarySheetName: 'Daily Summary',
   categorySummarySheetName: 'Category Summary',
+  reminderLogSheetName: 'Reminder Log',
   defaultDeviceLabel: 'In-store touchscreen',
   allowedActions: [
     'app_loaded',
@@ -84,7 +85,20 @@ var APP_CONFIG = Object.freeze({
     'percentOfSelections',
     'relatedSmartAddOn',
     'lastUpdated'
-  ]
+  ],
+  reminderHeaders: [
+    'id',
+    'timestamp',
+    'sessionId',
+    'category',
+    'reminderDate',
+    'emailDomain',
+    'deliveryStatus',
+    'calendarEventId'
+  ],
+  reminderTitle: 'Dublin Cleaners Reminder: Bring These Items',
+  businessPhone: '(614) 764-9934',
+  businessAddress: '6845 Caine Rd'
 });
 
 var CHECKLISTS = Object.freeze({
@@ -207,6 +221,44 @@ function recordAppAction(request) {
   };
 }
 
+
+function sendChecklistReminder(request) {
+  var cleanRequest = normalizeReminderRequest_(request);
+  var category = getCategoryById_(cleanRequest.category);
+  if (!category) {
+    throw new Error('Invalid category selection.');
+  }
+  if (!isValidEmail_(cleanRequest.email)) {
+    throw new Error('INVALID_EMAIL');
+  }
+
+  var reminderDate = resolveReminderDate_(cleanRequest.reminderDate);
+  if (!reminderDate) {
+    throw new Error('Invalid reminder date.');
+  }
+
+  var id = Utilities.getUuid();
+  var timestamp = new Date().toISOString();
+  var calendarEventId = '';
+  var deliveryStatus = 'sent';
+  try {
+    var event = createReminderEvent_(cleanRequest.email, category, reminderDate);
+    calendarEventId = event && typeof event.getId === 'function' ? event.getId() : '';
+  } catch (error) {
+    deliveryStatus = 'failed';
+    appendReminderLogRow_(buildReminderLogRow_(id, timestamp, cleanRequest, category, reminderDate, deliveryStatus, calendarEventId));
+    return { ok: false, error: 'send_failed' };
+  }
+
+  appendReminderLogRow_(buildReminderLogRow_(id, timestamp, cleanRequest, category, reminderDate, deliveryStatus, calendarEventId));
+  return {
+    ok: true,
+    id: id,
+    reminderDate: reminderDate.toISOString(),
+    deliveryStatus: deliveryStatus
+  };
+}
+
 function getOrCreateActivitySheet_() {
   return getOrCreateUsageLog_().usageLog;
 }
@@ -256,11 +308,13 @@ function getOrCreateUsageLogNoLock_() {
   var usageLog = ensureSheet_(spreadsheet, APP_CONFIG.usageLogSheetName, APP_CONFIG.usageHeaders);
   var dailySummary = ensureSheet_(spreadsheet, APP_CONFIG.dailySummarySheetName, APP_CONFIG.dailySummaryHeaders);
   var categorySummary = ensureSheet_(spreadsheet, APP_CONFIG.categorySummarySheetName, APP_CONFIG.categorySummaryHeaders);
+  var reminderLog = ensureSheet_(spreadsheet, APP_CONFIG.reminderLogSheetName, APP_CONFIG.reminderHeaders);
   return {
     spreadsheet: spreadsheet,
     usageLog: usageLog,
     dailySummary: dailySummary,
-    categorySummary: categorySummary
+    categorySummary: categorySummary,
+    reminderLog: reminderLog
   };
 }
 
@@ -281,6 +335,102 @@ function appendLogRow_(row) {
   } finally {
     lock.releaseLock();
   }
+}
+
+
+function appendReminderLogRow_(row) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheets = getOrCreateUsageLogNoLock_();
+    var nextRow = getLastRow_(sheets.reminderLog) + 1;
+    sheets.reminderLog.getRange(nextRow, 1, 1, APP_CONFIG.reminderHeaders.length).setValues([row]);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function buildReminderLogRow_(id, timestamp, request, category, reminderDate, deliveryStatus, calendarEventId) {
+  return [
+    id,
+    timestamp,
+    request.sessionId,
+    category.title,
+    reminderDate.toISOString(),
+    getEmailDomain_(request.email),
+    deliveryStatus,
+    calendarEventId || ''
+  ];
+}
+
+function createReminderEvent_(email, category, reminderDate) {
+  var endDate = new Date(reminderDate.getTime() + 30 * 60 * 1000);
+  return CalendarApp.getDefaultCalendar().createEvent(APP_CONFIG.reminderTitle, reminderDate, endDate, {
+    description: buildReminderDescription_(category),
+    guests: email,
+    sendInvites: true
+  });
+}
+
+function buildReminderDescription_(category) {
+  return [
+    'Selected checklist: ' + category.title,
+    '',
+    'Bring these items:',
+    '- ' + category.selectedItems.join('\n- '),
+    '',
+    'Forgotten items:',
+    '- ' + category.forgottenItems.join('\n- '),
+    '',
+    'Smart add-on: ' + category.smartAddOn,
+    'Best next step: ' + category.nextStep,
+    '',
+    'Dublin Cleaners phone: ' + APP_CONFIG.businessPhone,
+    'Dublin Cleaners address: ' + APP_CONFIG.businessAddress
+  ].join('\n');
+}
+
+function normalizeReminderRequest_(request) {
+  var source = request && typeof request === 'object' ? request : {};
+  return {
+    email: sanitizeText_(source.email || '', 254).toLowerCase(),
+    category: sanitizeText_(source.category || '', 80),
+    reminderDate: sanitizeText_(source.reminderDate || '', 40),
+    sessionId: sanitizeText_(source.sessionId || '', 80)
+  };
+}
+
+function isValidEmail_(email) {
+  if (!email || email.length > 254 || email.indexOf('..') !== -1) {
+    return false;
+  }
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+function getEmailDomain_(email) {
+  var parts = String(email || '').toLowerCase().split('@');
+  return parts.length === 2 ? sanitizeText_(parts[1], 120) : '';
+}
+
+function resolveReminderDate_(value) {
+  var key = sanitizeText_(value || '', 40);
+  if (['tomorrow', 'weekend', 'next_week'].indexOf(key) === -1) {
+    return null;
+  }
+
+  var now = new Date();
+  var target = new Date(now.getTime());
+  if (key === 'tomorrow') {
+    target.setDate(target.getDate() + 1);
+  } else if (key === 'weekend') {
+    var day = target.getDay();
+    var daysUntilSaturday = (6 - day + 7) % 7;
+    target.setDate(target.getDate() + (daysUntilSaturday || 7));
+  } else if (key === 'next_week') {
+    target.setDate(target.getDate() + 7);
+  }
+  target.setHours(9, 0, 0, 0);
+  return target;
 }
 
 function ensureHeaders_(sheet, headers) {

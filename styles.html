@@ -317,7 +317,7 @@ li {
 }
 .result-actions {
   display: grid;
-  grid-template-rows: 1fr 1fr auto;
+  grid-template-rows: auto auto auto auto;
   gap: clamp(10px, 1.4vw, 18px);
 }
 .save-card, .next-step-card {
@@ -386,6 +386,127 @@ li {
 .reset-button:active { transform: scale(0.985); background: var(--brand-deep); }
 .reset-button:focus-visible { outline: 6px solid rgba(185, 139, 75, 0.34); outline-offset: 4px; }
 
+.reminder-open-button,
+.reminder-submit-button,
+.reminder-cancel-button {
+  min-height: var(--tap);
+  width: 100%;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: clamp(19px, 2vw, 25px);
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 140ms ease, background 160ms ease;
+}
+.reminder-open-button,
+.reminder-submit-button {
+  color: #fff;
+  background: var(--gold);
+  border: 0;
+  box-shadow: 0 14px 30px rgba(185, 139, 75, 0.24);
+}
+.reminder-cancel-button {
+  color: var(--brand);
+  background: #fff;
+  border: 2px solid var(--line);
+}
+.reminder-open-button:active,
+.reminder-submit-button:active,
+.reminder-cancel-button:active { transform: scale(0.985); }
+.reminder-open-button:focus-visible,
+.reminder-submit-button:focus-visible,
+.reminder-cancel-button:focus-visible,
+.email-input:focus-visible { outline: 6px solid rgba(185, 139, 75, 0.34); outline-offset: 4px; }
+.reminder-form {
+  display: grid;
+  gap: clamp(10px, 1.2vw, 16px);
+  padding: clamp(14px, 1.8vw, 22px);
+  background: #fbf6ec;
+  border: 1px solid rgba(185, 139, 75, 0.36);
+  border-radius: 24px;
+}
+.reminder-form[hidden],
+.reminder-open-button[hidden] { display: none !important; }
+.reminder-form-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(15px, 1.55vw, 20px);
+  line-height: 1.2;
+}
+.email-label,
+.reminder-date-fieldset legend {
+  color: var(--brand-deep);
+  font-size: clamp(16px, 1.6vw, 21px);
+  font-weight: 900;
+}
+.email-input {
+  min-height: var(--tap);
+  width: 100%;
+  padding: 0 clamp(16px, 1.8vw, 24px);
+  color: var(--ink);
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 22px;
+  font: inherit;
+  font-size: clamp(19px, 2vw, 25px);
+  user-select: auto;
+  -webkit-user-select: auto;
+}
+.reminder-date-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.reminder-date-buttons {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+.reminder-date-buttons label { cursor: pointer; }
+.reminder-date-buttons input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.reminder-date-buttons span {
+  min-height: var(--tap);
+  display: grid;
+  place-items: center;
+  padding: 0 8px;
+  text-align: center;
+  color: var(--brand);
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  font-size: clamp(15px, 1.45vw, 19px);
+  font-weight: 900;
+}
+.reminder-date-buttons input:checked + span {
+  color: #fff;
+  background: var(--brand);
+  border-color: var(--gold);
+}
+.reminder-status {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(15px, 1.55vw, 20px);
+  font-weight: 800;
+  line-height: 1.2;
+}
+.reminder-status[data-status="error"] { color: #9f2d20; }
+.reminder-status[data-status="success"] { color: var(--selected); }
+.reminder-form-actions {
+  display: grid;
+  grid-template-columns: 1fr 0.72fr;
+  gap: 10px;
+}
+.reminder-submit-button:disabled {
+  opacity: 0.68;
+  cursor: wait;
+}
+
 .print-shell { width: min(48rem, 100%); margin: 0 auto; padding: 2rem; }
 .print-logo { width: 11rem; }
 .print-list { display: grid; gap: 1rem; margin-top: 2rem; }
@@ -437,6 +558,7 @@ li {
   .result-card { height: auto; grid-template-areas: none; }
   .result-copy, .checklist-columns, .result-actions { grid-area: auto; }
   .save-card { display: none; }
+  .reminder-date-buttons, .reminder-form-actions { grid-template-columns: 1fr; }
 }
 
 @media (min-width: 901px) and (orientation: landscape) {
@@ -521,6 +643,8 @@ body.density-compact .result-actions {
 }
 
 body.mode-mobile .save-card { display: none; }
+body.mode-mobile .reminder-date-buttons,
+body.mode-mobile .reminder-form-actions { grid-template-columns: 1fr; }
 
 body.mode-mobile .situation-card { min-height: clamp(126px, calc(150px * var(--display-scale)), 170px); }
 body.density-compact .brand-logo { max-height: 32%; }
