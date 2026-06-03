@@ -340,14 +340,28 @@ function appendLogRow_(row) {
 
 function appendReminderLogRow_(row) {
   var lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  var hasLock = false;
   try {
-    var sheets = getOrCreateUsageLogNoLock_();
-    var nextRow = getLastRow_(sheets.reminderLog) + 1;
-    sheets.reminderLog.getRange(nextRow, 1, 1, APP_CONFIG.reminderHeaders.length).setValues([row]);
+    hasLock = typeof lock.tryLock === 'function' ? lock.tryLock(1500) : true;
+    if (!hasLock) {
+      appendReminderLogRowNoLock_(row);
+      return;
+    }
+    if (typeof lock.tryLock !== 'function') {
+      lock.waitLock(1500);
+    }
+    appendReminderLogRowNoLock_(row);
   } finally {
-    lock.releaseLock();
+    if (hasLock) {
+      lock.releaseLock();
+    }
   }
+}
+
+function appendReminderLogRowNoLock_(row) {
+  var sheets = getOrCreateUsageLogNoLock_();
+  var nextRow = getLastRow_(sheets.reminderLog) + 1;
+  sheets.reminderLog.getRange(nextRow, 1, 1, APP_CONFIG.reminderHeaders.length).setValues([row]);
 }
 
 function buildReminderLogRow_(id, timestamp, request, category, reminderDate, deliveryStatus, calendarEventId) {

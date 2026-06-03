@@ -83,7 +83,8 @@ function loadCode() {
     createCount: 0,
     locks: 0,
     calendarEvents: [],
-    failCalendarCreate: false
+    failCalendarCreate: false,
+    lockUnavailable: false
   };
   const context = {
     console,
@@ -101,6 +102,13 @@ function loadCode() {
         return {
           waitLock() {
             stores.locks += 1;
+          },
+          tryLock() {
+            if (stores.lockUnavailable) {
+              return false;
+            }
+            stores.locks += 1;
+            return true;
           },
           releaseLock() {
             stores.locks -= 1;
@@ -210,6 +218,9 @@ test('manifest supports public kiosk access without login', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'appsscript.json'), 'utf8'));
   assert.strictEqual(manifest.webapp.executeAs, 'USER_DEPLOYING');
   assert.strictEqual(manifest.webapp.access, 'ANYONE_ANONYMOUS');
+  assert.ok(manifest.oauthScopes.includes('https://www.googleapis.com/auth/calendar'));
+  assert.ok(manifest.oauthScopes.includes('https://www.googleapis.com/auth/spreadsheets'));
+  assert.ok(manifest.oauthScopes.includes('https://www.googleapis.com/auth/script.storage'));
 });
 
 test('doGet loads the app without user-based authorization gates', () => {
@@ -405,6 +416,25 @@ test('email reminder logs failed Calendar sends without storing the full email',
   assert.notStrictEqual(JSON.stringify(reminderRow).includes('customer@example.com'), true);
 });
 
+test('email reminder logging falls back instead of blocking when the usage lock is busy', () => {
+  const app = loadCode();
+  app.__stores.lockUnavailable = true;
+  const response = app.sendChecklistReminder({
+    email: 'customer@example.com',
+    category: 'laundry_overload',
+    reminderDate: 'weekend',
+    sessionId: 'anon-lock-busy'
+  });
+  assert.strictEqual(response.ok, true);
+  assert.strictEqual(app.__stores.calendarEvents.length, 1);
+  const spreadsheet = app.__stores.spreadsheets[app.__stores.properties[app.APP_CONFIG.spreadsheetPropertyKey]];
+  const reminderRow = spreadsheet._sheets[app.APP_CONFIG.reminderLogSheetName].state.rows[1];
+  assert.strictEqual(reminderRow[2], 'anon-lock-busy');
+  assert.strictEqual(reminderRow[3], 'Laundry Overload');
+  assert.strictEqual(reminderRow[5], 'example.com');
+  assert.strictEqual(reminderRow[6], 'sent');
+});
+
 test('HTML renders the portrait kiosk shell immediately without a blocking workspace screen', () => {
   const index = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const scripts = fs.readFileSync(path.join(__dirname, '..', 'scripts.html'), 'utf8');
@@ -453,6 +483,9 @@ test('Scripts keep category selection touch-first with selected state, checklist
   assert.match(scripts, /sendChecklistReminder/);
   assert.match(scripts, /Please enter a valid email address\./);
   assert.match(scripts, /We couldn’t send the reminder\. Please try again\./);
+  assert.match(scripts, /REMINDER_SEND_TIMEOUT_MS = 18000/);
+  assert.match(scripts, /startReminderTimeout/);
+  assert.match(scripts, /state\.reminderRequestId/);
   assert.match(scripts, /clearReminderEmail/);
   assert.match(scripts, /revealResultPanel\(\)/);
   assert.match(scripts, /panel\.scrollIntoView/);
