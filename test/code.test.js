@@ -29,6 +29,15 @@ function makeSheet(name) {
               state.rows[targetIndex][col - 1 + c] = value;
             });
           });
+        },
+        clearContent() {
+          for (let r = 0; r < numRows; r += 1) {
+            const targetIndex = row - 1 + r;
+            state.rows[targetIndex] = state.rows[targetIndex] || [];
+            for (let c = 0; c < numCols; c += 1) {
+              state.rows[targetIndex][col - 1 + c] = '';
+            }
+          }
         }
       };
     },
@@ -37,6 +46,14 @@ function makeSheet(name) {
     },
     appendRow(row) {
       state.rows.push(row);
+    },
+    getLastRow() {
+      for (let i = state.rows.length - 1; i >= 0; i -= 1) {
+        if ((state.rows[i] || []).some((value) => value !== '')) {
+          return i + 1;
+        }
+      }
+      return 0;
     }
   };
 }
@@ -212,7 +229,11 @@ test('sheet creation creates headers and stores the sheet id server-side only', 
   const app = loadCode();
   const sheet = app.getOrCreateActivitySheet_();
   assert.strictEqual(app.__stores.createCount, 1);
-  assert.strictEqual(JSON.stringify(sheet.state.rows[0]), JSON.stringify(app.APP_CONFIG.headers));
+  const spreadsheet = app.__stores.spreadsheets[app.__stores.properties[app.APP_CONFIG.spreadsheetPropertyKey]];
+  assert.strictEqual(spreadsheet.name, app.APP_CONFIG.spreadsheetName);
+  assert.strictEqual(JSON.stringify(sheet.state.rows[0]), JSON.stringify(app.APP_CONFIG.usageHeaders));
+  assert.strictEqual(JSON.stringify(spreadsheet._sheets[app.APP_CONFIG.dailySummarySheetName].state.rows[0]), JSON.stringify(app.APP_CONFIG.dailySummaryHeaders));
+  assert.strictEqual(JSON.stringify(spreadsheet._sheets[app.APP_CONFIG.categorySummarySheetName].state.rows[0]), JSON.stringify(app.APP_CONFIG.categorySummaryHeaders));
   assert.ok(app.__stores.properties[app.APP_CONFIG.spreadsheetPropertyKey]);
 });
 
@@ -229,19 +250,41 @@ test('valid category logging appends anonymous server-side checklist details', (
   const response = app.recordAppAction({
     action: 'category_selected',
     category: 'wedding_event',
+    sessionId: 'anon-test-session',
     deviceLabel: 'Lobby kiosk',
-    userAgent: 'Test Browser'
+    displayMode: 'kiosk',
+    userAgent: 'Test Browser',
+    viewportWidth: 1080,
+    viewportHeight: 1920,
+    orientation: 'portrait',
+    touchCapable: true,
+    referrer: 'https://example.test/start'
   });
   const sheet = app.getOrCreateActivitySheet_();
   const row = sheet.state.rows[1];
   assert.strictEqual(response.ok, true);
-  assert.strictEqual(row[2], 'category_selected');
-  assert.strictEqual(row[3], 'Wedding / Event');
-  assert.match(row[4], /Suits/);
-  assert.match(row[5], /Pocket squares/);
-  assert.strictEqual(row[8], 'Lobby kiosk');
-  assert.strictEqual(row[9], 'Test Browser');
-  assert.match(row[10], /anonymous/);
+  assert.strictEqual(row[2], 'anon-test-session');
+  assert.strictEqual(row[3], 'Lobby kiosk');
+  assert.strictEqual(row[4], 'kiosk');
+  assert.strictEqual(row[5], 'category_selected');
+  assert.strictEqual(row[6], 'Wedding / Event');
+  assert.match(row[7], /Suits/);
+  assert.match(row[8], /Pocket squares/);
+  assert.strictEqual(row[11], 'Test Browser');
+  assert.strictEqual(row[12], 1080);
+  assert.strictEqual(row[13], 1920);
+  assert.strictEqual(row[14], 'portrait');
+  assert.strictEqual(row[15], true);
+  assert.strictEqual(row[16], 'https://example.test/start');
+  assert.match(row[17], /anonymous/);
+  const spreadsheet = app.__stores.spreadsheets[app.__stores.properties[app.APP_CONFIG.spreadsheetPropertyKey]];
+  const dailyRow = spreadsheet._sheets[app.APP_CONFIG.dailySummarySheetName].state.rows[1];
+  const categoryRow = spreadsheet._sheets[app.APP_CONFIG.categorySummarySheetName].state.rows.find((summaryRow) => summaryRow[0] === 'Wedding / Event');
+  assert.strictEqual(dailyRow[2], 1);
+  assert.strictEqual(dailyRow[3], 1);
+  assert.strictEqual(dailyRow[6], 'Wedding / Event');
+  assert.strictEqual(categoryRow[1], 1);
+  assert.strictEqual(categoryRow[3], 1);
 });
 
 test('invalid category rejection proves server-side category validation', () => {
@@ -261,7 +304,7 @@ test('invalid app action is rejected', () => {
 test('anonymous-only logging rejects customer details', () => {
   const app = loadCode();
   assert.throws(() => {
-    app.recordAppAction({ action: 'app_ready', email: 'customer@example.com' });
+    app.recordAppAction({ action: 'app_loaded', email: 'customer@example.com' });
   }, /Customer details are not collected/);
 });
 
