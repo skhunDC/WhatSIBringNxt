@@ -330,7 +330,7 @@ test('CSS locks the primary experience to a portrait touchscreen kiosk frame', (
   assert.match(styles, /min-height:\s*100vh/);
   assert.match(styles, /grid-template-rows:\s*20svh 55svh 25svh/);
   assert.match(styles, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(styles, /--tap:\s*72px/);
+  assert.match(styles, /--tap:\s*clamp\(56px, calc\(72px \* var\(--display-scale\)\), 82px\)/);
   assert.match(styles, /touch-action:\s*manipulation/);
   assert.match(styles, /user-select:\s*none/);
   assert.doesNotMatch(styles, /grid-template-columns:\s*repeat\(3/);
@@ -381,21 +381,33 @@ test('Tap another situation resets the result and scrolls back to the page top',
   assert.match(scripts, /backButton\.addEventListener\('click', function\(\) \{\s*resetResult\('reset_tapped'\);\s*scrollToPageTop\(\);\s*resetInactivityTimer\(\);/);
 });
 
-test('detectDisplayMode reads viewport, pointer, touch, orientation, and updates layout-only body state', () => {
+test('detectDisplayMode reads viewport, pointer, touch, orientation, and updates responsive body state', () => {
   const scripts = fs.readFileSync(path.join(__dirname, '..', 'scripts.html'), 'utf8');
-  assert.match(scripts, /function detectDisplayMode\(\)/);
+  assert.match(scripts, /function getViewportMetrics\(\)/);
+  assert.match(scripts, /window\.visualViewport/);
   assert.match(scripts, /window\.innerWidth/);
   assert.match(scripts, /window\.innerHeight/);
-  assert.match(scripts, /matchMedia\("\(orientation: portrait\)"\)/);
+  assert.match(scripts, /window\.screen/);
+  assert.match(scripts, /window\.devicePixelRatio/);
+  assert.match(scripts, /function classifyDevice\(metrics, pointerProfile\)/);
   assert.match(scripts, /matchMedia\("\(pointer: coarse\)"\)/);
+  assert.match(scripts, /matchMedia\("\(pointer: fine\)"\)/);
+  assert.match(scripts, /matchMedia\("\(hover: none\)"\)/);
   assert.match(scripts, /navigator\.maxTouchPoints/);
   assert.match(scripts, /navigator\.userAgent/);
-  assert.match(scripts, /mode = "mobile"/);
-  assert.match(scripts, /mode = "kiosk"/);
-  assert.match(scripts, /classList\.remove\("mode-kiosk", "mode-mobile", "mode-desktop"\)/);
-  assert.match(scripts, /document\.body\.dataset\.displayMode = mode/);
-  assert.match(scripts, /window\.addEventListener\("resize", detectDisplayMode\)/);
-  assert.match(scripts, /window\.addEventListener\("orientationchange", detectDisplayMode\)/);
-  assert.match(scripts, /document\.addEventListener\("DOMContentLoaded", detectDisplayMode\)/);
+  assert.match(scripts, /mode: 'mobile'/);
+  assert.match(scripts, /mode: 'kiosk'/);
+  assert.match(scripts, /mode: 'desktop'/);
+  assert.match(scripts, /function calculateDisplayScale\(metrics, mode\)/);
+  assert.match(scripts, /--viewport-width/);
+  assert.match(scripts, /--viewport-height/);
+  assert.match(scripts, /--display-scale/);
+  assert.match(scripts, /body\.dataset\.displayMode = classification\.mode/);
+  assert.match(scripts, /body\.dataset\.deviceType = classification\.deviceType/);
+  assert.match(scripts, /body\.dataset\.screenResolution/);
+  assert.match(scripts, /window\.addEventListener\("resize", scheduleViewportRefresh\)/);
+  assert.match(scripts, /window\.addEventListener\("orientationchange", scheduleViewportRefresh\)/);
+  assert.match(scripts, /window\.visualViewport\.addEventListener\("resize", scheduleViewportRefresh\)/);
+  assert.match(scripts, /document\.addEventListener\("DOMContentLoaded", applyResponsiveViewport\)/);
   assert.doesNotMatch(scripts, /displayMode.*recordAppAction/);
 });

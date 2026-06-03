@@ -24,37 +24,127 @@
     loadingLogged: false
   };
 
-  function detectDisplayMode() {
-    var width = window.innerWidth;
-    var height = window.innerHeight;
-    var isPortrait = window.matchMedia("(orientation: portrait)").matches;
-    var hasCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
-    var hasFinePointer = window.matchMedia("(pointer: fine)").matches;
-    var hasTouch = navigator.maxTouchPoints > 0;
+  function clampNumber(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function getViewportMetrics() {
+    var visualViewport = window.visualViewport || {};
+    var width = Math.round(visualViewport.width || window.innerWidth || document.documentElement.clientWidth || 0);
+    var height = Math.round(visualViewport.height || window.innerHeight || document.documentElement.clientHeight || 0);
+    var screenWidth = window.screen && window.screen.width ? Math.round(window.screen.width) : width;
+    var screenHeight = window.screen && window.screen.height ? Math.round(window.screen.height) : height;
+    var orientation = width <= height ? 'portrait' : 'landscape';
+    var shortSide = Math.min(width, height);
+    var longSide = Math.max(width, height);
+
+    return {
+      width: width,
+      height: height,
+      screenWidth: screenWidth,
+      screenHeight: screenHeight,
+      orientation: orientation,
+      shortSide: shortSide,
+      longSide: longSide,
+      pixelRatio: window.devicePixelRatio || 1
+    };
+  }
+
+  function getPointerProfile() {
+    return {
+      coarse: window.matchMedia("(pointer: coarse)").matches,
+      fine: window.matchMedia("(pointer: fine)").matches,
+      touch: navigator.maxTouchPoints > 0,
+      hoverless: window.matchMedia("(hover: none)").matches
+    };
+  }
+
+  function classifyDevice(metrics, pointerProfile) {
     var userAgent = navigator.userAgent || '';
-    var looksMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
+    var looksPhone = /Android.*Mobile|iPhone|iPod|Mobile/i.test(userAgent);
+    var looksTablet = /iPad|Tablet|Android(?!.*Mobile)/i.test(userAgent);
+    var isPortrait = metrics.orientation === 'portrait';
+    var isKioskResolution = isPortrait && metrics.width >= 700 && metrics.height >= 1100;
+    var isPhoneSize = metrics.shortSide <= 700 || looksPhone;
+    var isTabletSize = metrics.shortSide > 700 && metrics.shortSide <= 1024 && (pointerProfile.touch || looksTablet);
 
-    var mode = "desktop";
-
-    if (width <= 700 && isPortrait && (hasTouch || looksMobile)) {
-      mode = "mobile";
-    } else if (height >= 1200 && width >= 700 && isPortrait && (hasCoarsePointer || hasTouch)) {
-      mode = "kiosk";
-    } else if (width > 900 && (!isPortrait || hasFinePointer)) {
-      mode = "desktop";
+    if (isPhoneSize) {
+      return { mode: 'mobile', deviceType: 'phone' };
     }
 
-    document.body.classList.remove("mode-kiosk", "mode-mobile", "mode-desktop");
-    document.body.classList.add("mode-" + mode);
-    document.body.dataset.displayMode = mode;
+    if (isKioskResolution && (pointerProfile.coarse || pointerProfile.touch || !pointerProfile.fine || metrics.longSide >= 1600)) {
+      return { mode: 'kiosk', deviceType: isTabletSize ? 'tablet' : 'kiosk' };
+    }
 
-    return mode;
+    if (isTabletSize && isPortrait) {
+      return { mode: 'kiosk', deviceType: 'tablet' };
+    }
+
+    return { mode: 'desktop', deviceType: looksTablet ? 'tablet' : 'desktop' };
+  }
+
+  function calculateDisplayScale(metrics, mode) {
+    var scale;
+    if (mode === 'mobile') {
+      scale = Math.min(metrics.width / 390, metrics.height / 844);
+      return clampNumber(scale, 0.88, 1.08);
+    }
+
+    scale = Math.min(metrics.width / 1080, metrics.height / 1920);
+    if (mode === 'desktop' && metrics.orientation === 'landscape') {
+      scale = Math.min(metrics.width / 1080, (metrics.height - 48) / 1920);
+    }
+    return clampNumber(scale, 0.72, 1.12);
+  }
+
+  function applyResponsiveViewport() {
+    var metrics = getViewportMetrics();
+    var pointerProfile = getPointerProfile();
+    var classification = classifyDevice(metrics, pointerProfile);
+    var scale = calculateDisplayScale(metrics, classification.mode);
+    var rootStyle = document.documentElement.style;
+    var body = document.body;
+
+    rootStyle.setProperty('--viewport-width', metrics.width + 'px');
+    rootStyle.setProperty('--viewport-height', metrics.height + 'px');
+    rootStyle.setProperty('--display-scale', scale.toFixed(3));
+
+    if (body) {
+      body.classList.remove('mode-kiosk', 'mode-mobile', 'mode-desktop', 'density-compact', 'density-roomy');
+      body.classList.add('mode-' + classification.mode);
+      body.classList.add(metrics.height < 820 || scale < 0.82 ? 'density-compact' : 'density-roomy');
+      body.dataset.displayMode = classification.mode;
+      body.dataset.deviceType = classification.deviceType;
+      body.dataset.viewportWidth = String(metrics.width);
+      body.dataset.viewportHeight = String(metrics.height);
+      body.dataset.screenResolution = metrics.screenWidth + 'x' + metrics.screenHeight;
+      body.dataset.pixelRatio = String(metrics.pixelRatio);
+    }
+
+    return {
+      mode: classification.mode,
+      deviceType: classification.deviceType,
+      metrics: metrics
+    };
+  }
+
+  function detectDisplayMode() {
+    return applyResponsiveViewport().mode;
+  }
+
+  function scheduleViewportRefresh() {
+    window.requestAnimationFrame(applyResponsiveViewport);
   }
 
   window.detectDisplayMode = detectDisplayMode;
-  window.addEventListener("resize", detectDisplayMode);
-  window.addEventListener("orientationchange", detectDisplayMode);
-  document.addEventListener("DOMContentLoaded", detectDisplayMode);
+  window.applyResponsiveViewport = applyResponsiveViewport;
+  applyResponsiveViewport();
+  window.addEventListener("resize", scheduleViewportRefresh);
+  window.addEventListener("orientationchange", scheduleViewportRefresh);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", scheduleViewportRefresh);
+  }
+  document.addEventListener("DOMContentLoaded", applyResponsiveViewport);
 
   function byId(id) {
     return document.getElementById(id);
@@ -73,16 +163,18 @@
   }
 
   function makeRequest(action, category) {
-    var orientation = window.matchMedia("(orientation: portrait)").matches ? 'portrait' : 'landscape';
+    var responsiveState = applyResponsiveViewport();
+    var metrics = responsiveState.metrics;
+    var orientation = metrics.orientation;
     return {
       action: action,
       category: category || '',
       sessionId: getSessionId(),
-      deviceLabel: window.localStorage.getItem('dublinCleanersDeviceLabel') || 'In-store touchscreen',
-      displayMode: document.body.dataset.displayMode || detectDisplayMode(),
+      deviceLabel: window.localStorage.getItem('dublinCleanersDeviceLabel') || responsiveState.deviceType + ' ' + metrics.screenWidth + 'x' + metrics.screenHeight,
+      displayMode: responsiveState.mode,
       userAgent: window.navigator.userAgent || '',
-      viewportWidth: window.innerWidth || '',
-      viewportHeight: window.innerHeight || '',
+      viewportWidth: metrics.width || '',
+      viewportHeight: metrics.height || '',
       orientation: orientation,
       touchCapable: navigator.maxTouchPoints > 0,
       referrer: document.referrer || ''
