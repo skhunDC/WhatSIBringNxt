@@ -325,7 +325,17 @@ li {
   background: var(--brand-soft);
   border-radius: 24px;
 }
-.save-card { background: #fbf6ec; border: 2px dashed rgba(185, 139, 75, 0.5); }
+.save-card {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: #fbf6ec;
+  border: 2px dashed rgba(185, 139, 75, 0.5);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.save-card:focus-visible { outline: 6px solid rgba(185, 139, 75, 0.34); outline-offset: 4px; }
 .save-card p, .next-step-card small {
   display: block;
   margin: 0;

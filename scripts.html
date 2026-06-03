@@ -19,8 +19,29 @@
 
   var state = {
     payload: FALLBACK_PAYLOAD,
-    selectedCategoryId: ''
+    selectedCategoryId: '',
+    inactivityTimer: 0,
+    loadingLogged: false
   };
+
+  function getSessionId() {
+    var storageKey = 'dublinCleanersKioskSessionId';
+    var existing = window.sessionStorage.getItem(storageKey);
+    if (existing) {
+      return existing;
+    }
+    var randomPart = '';
+    if (window.crypto && window.crypto.getRandomValues) {
+      var values = new Uint32Array(2);
+      window.crypto.getRandomValues(values);
+      randomPart = values[0].toString(36) + values[1].toString(36);
+    } else {
+      randomPart = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+    var sessionId = 'anon-' + randomPart;
+    window.sessionStorage.setItem(storageKey, sessionId);
+    return sessionId;
+  }
 
   function detectDisplayMode() {
     var width = window.innerWidth;
@@ -71,23 +92,50 @@
   }
 
   function makeRequest(action, category) {
+    var orientation = window.matchMedia("(orientation: portrait)").matches ? 'portrait' : 'landscape';
     return {
       action: action,
       category: category || '',
+      sessionId: getSessionId(),
       deviceLabel: window.localStorage.getItem('dublinCleanersDeviceLabel') || 'In-store touchscreen',
-      userAgent: window.navigator.userAgent || ''
+      displayMode: document.body.dataset.displayMode || detectDisplayMode(),
+      userAgent: window.navigator.userAgent || '',
+      viewportWidth: window.innerWidth || '',
+      viewportHeight: window.innerHeight || '',
+      orientation: orientation,
+      touchCapable: navigator.maxTouchPoints > 0,
+      referrer: document.referrer || ''
     };
   }
 
+  function enqueueLog(action, category) {
+    window.setTimeout(function() {
+      if (!window.google || !google.script || !google.script.run) {
+        return;
+      }
+      google.script.run
+        .withFailureHandler(function() {})
+        .recordAppAction(makeRequest(action, category));
+    }, 0);
+  }
+
   function logAction(action, category) {
-    if (!window.google || !google.script || !google.script.run) {
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(function() { enqueueLog(action, category); }, { timeout: 1500 });
       return;
     }
-    google.script.run
-      .withFailureHandler(function(error) {
-        window.console.warn('Kiosk activity was not logged.', error && error.message ? error.message : error);
-      })
-      .recordAppAction(makeRequest(action, category));
+    enqueueLog(action, category);
+  }
+
+  function resetInactivityTimer() {
+    if (state.inactivityTimer) {
+      window.clearTimeout(state.inactivityTimer);
+    }
+    state.inactivityTimer = window.setTimeout(function() {
+      if (state.selectedCategoryId) {
+        resetResult('inactivity_reset');
+      }
+    }, 120000);
   }
 
   function renderCategories(categories) {
@@ -177,9 +225,12 @@
     byId('resultCard').classList.remove('is-empty');
     byId('resultCard').classList.add('has-result');
     logAction('category_selected', category.id);
+    logAction('checklist_viewed', category.id);
+    resetInactivityTimer();
   }
 
-  function resetResult() {
+  function resetResult(reason) {
+    var previousCategoryId = state.selectedCategoryId;
     state.selectedCategoryId = '';
     updateSelectedCards('');
     setText(byId('resultEyebrow'), 'Ready when you are');
@@ -193,12 +244,26 @@
     byId('checklistColumns').hidden = true;
     byId('resultCard').classList.add('is-empty');
     byId('resultCard').classList.remove('has-result');
+    if (reason && previousCategoryId) {
+      logAction(reason, previousCategoryId);
+    }
   }
 
   function setupControls() {
     var backButton = byId('backButton');
     if (backButton) {
-      backButton.addEventListener('click', resetResult);
+      backButton.addEventListener('click', function() {
+        resetResult('reset_tapped');
+        resetInactivityTimer();
+      });
+    }
+
+    var saveButton = byId('saveListButton');
+    if (saveButton) {
+      saveButton.addEventListener('click', function() {
+        logAction('save_list_opened', state.selectedCategoryId);
+        resetInactivityTimer();
+      });
     }
   }
 
@@ -208,6 +273,10 @@
       loadingScreen.classList.add('is-hidden');
       window.setTimeout(function() {
         loadingScreen.setAttribute('aria-hidden', 'true');
+        if (!state.loadingLogged) {
+          state.loadingLogged = true;
+          logAction('loading_complete', '');
+        }
       }, 440);
     }
   }
@@ -217,6 +286,8 @@
       renderCategories(state.payload.categories);
       setupControls();
       hideLoader();
+      logAction('app_loaded', '');
+      resetInactivityTimer();
 
       if (!window.google || !google.script || !google.script.run) {
         return;
@@ -228,7 +299,6 @@
           if (state.selectedCategoryId) {
             showCategory(state.selectedCategoryId);
           }
-          logAction('app_ready', '');
         })
         .withFailureHandler(function() {
           hideLoader();
