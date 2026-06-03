@@ -373,6 +373,14 @@ test('Adaptive kiosk-first CSS exposes required shells, modes, breakpoints, and 
   assert.match(index, /Kiosk Preview/);
 });
 
+test('Tap another situation resets the result and scrolls back to the page top', () => {
+  const scripts = fs.readFileSync(path.join(__dirname, '..', 'scripts.html'), 'utf8');
+  assert.match(scripts, /function scrollToPageTop\(\)/);
+  assert.match(scripts, /window\.scrollTo\(\{\s*top: 0,\s*left: 0,\s*behavior: 'smooth'/);
+  assert.match(scripts, /byId\('appShell'\)/);
+  assert.match(scripts, /backButton\.addEventListener\('click', function\(\) \{\s*resetResult\('reset_tapped'\);\s*scrollToPageTop\(\);\s*resetInactivityTimer\(\);/);
+});
+
 test('detectDisplayMode reads viewport, pointer, touch, orientation, and updates layout-only body state', () => {
   const scripts = fs.readFileSync(path.join(__dirname, '..', 'scripts.html'), 'utf8');
   assert.match(scripts, /function detectDisplayMode\(\)/);
