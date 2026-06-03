@@ -206,6 +206,27 @@
     });
   }
 
+  function scrollToPageTop() {
+    window.requestAnimationFrame(function() {
+      if (window.scrollTo) {
+        window.scrollTo({
+          top: 0,
+          left: 0,
+          behavior: 'smooth'
+        });
+      }
+
+      var appShell = byId('appShell');
+      if (appShell && appShell.scrollTo) {
+        appShell.scrollTo({
+          top: 0,
+          left: 0,
+          behavior: 'smooth'
+        });
+      }
+    });
+  }
+
   function showCategory(categoryId) {
     var category = state.payload.categories.find(function(item) {
       return item.id === categoryId;
@@ -259,6 +280,7 @@
     if (backButton) {
       backButton.addEventListener('click', function() {
         resetResult('reset_tapped');
+        scrollToPageTop();
         resetInactivityTimer();
       });
     }
