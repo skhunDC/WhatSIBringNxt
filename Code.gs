@@ -134,7 +134,7 @@ var CHECKLISTS = Object.freeze({
   }),
   traveling_soon: Object.freeze({
     id: 'traveling_soon',
-    title: 'Traveling Soon',
+    title: 'Traveling Very Soon',
     icon: '✈',
     helperText: 'Pack clean and pressed.',
     selectedItems: ['Vacation outfits', 'Resort wear', 'Jackets', 'Dress clothes', 'Travel laundry'],
