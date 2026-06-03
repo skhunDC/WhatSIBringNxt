@@ -8,7 +8,8 @@
 </head>
 <body>
   <!-- Important: This is not a desktop web app. Design and code it as a portrait-first vertical touchscreen kiosk for a 1080×1920 in-store monitor. -->
-  <main class="kiosk-shell" id="appShell" aria-labelledby="heroTitle">
+  <main class="app-shell kiosk-frame kiosk-shell" id="appShell" aria-labelledby="heroTitle">
+    <p class="preview-label" aria-hidden="true">Kiosk Preview</p>
     <div id="loadingScreen" class="loading-pill" role="status" aria-live="polite">
       <span class="loading-dot" aria-hidden="true"></span>
       Loading fresh checklist data…
@@ -26,7 +27,7 @@
         <p class="eyebrow">Choose one</p>
         <h2 id="situationsTitle">What is happening next?</h2>
       </div>
-      <div class="card-grid" id="categoryGrid" aria-label="Situation choices"></div>
+      <div class="situation-grid card-grid" id="categoryGrid" aria-label="Situation choices"></div>
     </section>
 
     <section class="result-panel" id="resultPanel" aria-live="polite" aria-labelledby="resultTitle">

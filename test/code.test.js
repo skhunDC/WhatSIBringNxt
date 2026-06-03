@@ -269,17 +269,21 @@ test('HTML renders the portrait kiosk shell immediately without a blocking works
   const index = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const scripts = fs.readFileSync(path.join(__dirname, '..', 'scripts.html'), 'utf8');
   assert.match(index, /portrait-first vertical touchscreen kiosk for a 1080×1920/);
-  assert.match(index, /class=\"kiosk-shell\"/);
+  assert.match(index, /class=\"app-shell kiosk-frame kiosk-shell\"/);
   assert.match(index, /Loading fresh checklist data…/);
   assert.match(index, /Your quick checklist appears here/);
   assert.doesNotMatch(index, /primary-cta/);
-  assert.doesNotMatch(scripts, /scrollIntoView/);
+  assert.match(scripts, /revealResultPanel/);
+  assert.match(scripts, /scrollIntoView/);
 });
 
 test('CSS locks the primary experience to a portrait touchscreen kiosk frame', () => {
   const styles = fs.readFileSync(path.join(__dirname, '..', 'styles.html'), 'utf8');
   assert.match(styles, /--kiosk-width:\s*1080px/);
   assert.match(styles, /max-width:\s*var\(--kiosk-width\)/);
+  assert.match(styles, /--space-shell:/);
+  assert.match(styles, /--font-headline:/);
+  assert.match(styles, /--card-min-height:/);
   assert.match(styles, /min-height:\s*100vh/);
   assert.match(styles, /grid-template-rows:\s*20svh 55svh 25svh/);
   assert.match(styles, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
@@ -289,13 +293,58 @@ test('CSS locks the primary experience to a portrait touchscreen kiosk frame', (
   assert.doesNotMatch(styles, /grid-template-columns:\s*repeat\(3/);
 });
 
-test('Scripts keep category selection touch-first with selected state and no keyboard dependency', () => {
+test('Scripts keep category selection touch-first with selected state, checklist reveal, and no keyboard dependency', () => {
   const scripts = fs.readFileSync(path.join(__dirname, '..', 'scripts.html'), 'utf8');
   assert.match(scripts, /card\.type = 'button'/);
   assert.match(scripts, /addEventListener\('click'/);
   assert.match(scripts, /aria-pressed/);
   assert.match(scripts, /is-selected/);
   assert.match(scripts, /requestAnimationFrame/);
+  assert.match(scripts, /showCategory\(category\.id\)/);
+  assert.match(scripts, /renderList\('selectedItems', category\.selectedItems\)/);
+  assert.match(scripts, /byId\('checklistColumns'\)\.hidden = false/);
+  assert.match(scripts, /revealResultPanel\(\)/);
+  assert.match(scripts, /panel\.scrollIntoView/);
   assert.doesNotMatch(scripts, /prompt\(/);
   assert.doesNotMatch(scripts, /<input/);
+});
+
+
+test('Adaptive kiosk-first CSS exposes required shells, modes, breakpoints, and mobile stacking', () => {
+  const index = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'styles.html'), 'utf8');
+  assert.match(index, /app-shell/);
+  assert.match(index, /kiosk-frame/);
+  assert.match(index, /situation-grid/);
+  assert.match(styles, /\.app-shell/);
+  assert.match(styles, /\.kiosk-frame/);
+  assert.match(styles, /\.situation-grid/);
+  assert.match(styles, /\.result-panel/);
+  assert.match(styles, /mode-kiosk/);
+  assert.match(styles, /mode-mobile/);
+  assert.match(styles, /mode-desktop/);
+  assert.match(styles, /@media \(max-width:\s*700px\)/);
+  assert.match(styles, /@media \(min-width:\s*701px\) and \(orientation:\s*portrait\)/);
+  assert.match(styles, /@media \(min-width:\s*901px\) and \(orientation:\s*landscape\)/);
+  assert.match(styles, /\.save-card \{ display: none; \}/);
+  assert.match(index, /Kiosk Preview/);
+});
+
+test('detectDisplayMode reads viewport, pointer, touch, orientation, and updates layout-only body state', () => {
+  const scripts = fs.readFileSync(path.join(__dirname, '..', 'scripts.html'), 'utf8');
+  assert.match(scripts, /function detectDisplayMode\(\)/);
+  assert.match(scripts, /window\.innerWidth/);
+  assert.match(scripts, /window\.innerHeight/);
+  assert.match(scripts, /matchMedia\("\(orientation: portrait\)"\)/);
+  assert.match(scripts, /matchMedia\("\(pointer: coarse\)"\)/);
+  assert.match(scripts, /navigator\.maxTouchPoints/);
+  assert.match(scripts, /navigator\.userAgent/);
+  assert.match(scripts, /mode = "mobile"/);
+  assert.match(scripts, /mode = "kiosk"/);
+  assert.match(scripts, /classList\.remove\("mode-kiosk", "mode-mobile", "mode-desktop"\)/);
+  assert.match(scripts, /document\.body\.dataset\.displayMode = mode/);
+  assert.match(scripts, /window\.addEventListener\("resize", detectDisplayMode\)/);
+  assert.match(scripts, /window\.addEventListener\("orientationchange", detectDisplayMode\)/);
+  assert.match(scripts, /document\.addEventListener\("DOMContentLoaded", detectDisplayMode\)/);
+  assert.doesNotMatch(scripts, /displayMode.*recordAppAction/);
 });
