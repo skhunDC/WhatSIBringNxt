@@ -283,7 +283,7 @@
     }
     if (submitButton) {
       submitButton.disabled = isSubmitting;
-      submitButton.textContent = isSubmitting ? 'Sending…' : 'Send calendar invite';
+      submitButton.textContent = isSubmitting ? 'Sending…' : 'Send email reminder';
     }
   }
 
@@ -337,7 +337,7 @@
     state.reminderRequestId = requestId;
     setReminderSubmitting(true);
     startReminderTimeout(requestId);
-    setReminderStatus('Sending your calendar invite…', 'pending');
+    setReminderStatus('Sending your email reminder…', 'pending');
     google.script.run
       .withSuccessHandler(function(response) {
         if (requestId !== state.reminderRequestId || !state.reminderSubmitting) {
@@ -349,7 +349,7 @@
           return;
         }
         clearReminderEmail();
-        setReminderStatus('Reminder sent. Please check your email for the calendar invite.', 'success');
+        setReminderStatus('Reminder sent. Please check your email.', 'success');
         window.setTimeout(function() {
           closeReminderForm();
         }, 2200);

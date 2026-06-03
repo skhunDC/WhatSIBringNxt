@@ -94,7 +94,7 @@ var APP_CONFIG = Object.freeze({
     'reminderDate',
     'emailDomain',
     'deliveryStatus',
-    'calendarEventId'
+    'deliveryReference'
   ],
   reminderTitle: 'Dublin Cleaners Reminder: Bring These Items',
   businessPhone: '(614) 764-9934',
@@ -239,18 +239,18 @@ function sendChecklistReminder(request) {
 
   var id = Utilities.getUuid();
   var timestamp = new Date().toISOString();
-  var calendarEventId = '';
+  var deliveryReference = 'email';
   var deliveryStatus = 'sent';
   try {
-    var event = createReminderEvent_(cleanRequest.email, category, reminderDate);
-    calendarEventId = event && typeof event.getId === 'function' ? event.getId() : '';
+    sendReminderEmail_(cleanRequest.email, category, reminderDate);
   } catch (error) {
     deliveryStatus = 'failed';
-    appendReminderLogRow_(buildReminderLogRow_(id, timestamp, cleanRequest, category, reminderDate, deliveryStatus, calendarEventId));
+    deliveryReference = '';
+    appendReminderLogRow_(buildReminderLogRow_(id, timestamp, cleanRequest, category, reminderDate, deliveryStatus, deliveryReference));
     return { ok: false, error: 'send_failed' };
   }
 
-  appendReminderLogRow_(buildReminderLogRow_(id, timestamp, cleanRequest, category, reminderDate, deliveryStatus, calendarEventId));
+  appendReminderLogRow_(buildReminderLogRow_(id, timestamp, cleanRequest, category, reminderDate, deliveryStatus, deliveryReference));
   return {
     ok: true,
     id: id,
@@ -364,7 +364,7 @@ function appendReminderLogRowNoLock_(row) {
   sheets.reminderLog.getRange(nextRow, 1, 1, APP_CONFIG.reminderHeaders.length).setValues([row]);
 }
 
-function buildReminderLogRow_(id, timestamp, request, category, reminderDate, deliveryStatus, calendarEventId) {
+function buildReminderLogRow_(id, timestamp, request, category, reminderDate, deliveryStatus, deliveryReference) {
   return [
     id,
     timestamp,
@@ -373,21 +373,25 @@ function buildReminderLogRow_(id, timestamp, request, category, reminderDate, de
     reminderDate.toISOString(),
     getEmailDomain_(request.email),
     deliveryStatus,
-    calendarEventId || ''
+    deliveryReference || ''
   ];
 }
 
-function createReminderEvent_(email, category, reminderDate) {
-  var endDate = new Date(reminderDate.getTime() + 30 * 60 * 1000);
-  return CalendarApp.getDefaultCalendar().createEvent(APP_CONFIG.reminderTitle, reminderDate, endDate, {
-    description: buildReminderDescription_(category),
-    guests: email,
-    sendInvites: true
+function sendReminderEmail_(email, category, reminderDate) {
+  MailApp.sendEmail({
+    to: email,
+    subject: APP_CONFIG.reminderTitle,
+    body: buildReminderEmailBody_(category, reminderDate),
+    name: APP_CONFIG.businessName
   });
 }
 
-function buildReminderDescription_(category) {
+function buildReminderEmailBody_(category, reminderDate) {
   return [
+    'Your Dublin Cleaners reminder is set for: ' + formatReminderDate_(reminderDate),
+    '',
+    'Want this on your calendar? Add a personal calendar reminder for the date above if you would like.',
+    '',
     'Selected checklist: ' + category.title,
     '',
     'Bring these items:',
@@ -402,6 +406,11 @@ function buildReminderDescription_(category) {
     'Dublin Cleaners phone: ' + APP_CONFIG.businessPhone,
     'Dublin Cleaners address: ' + APP_CONFIG.businessAddress
   ].join('\n');
+}
+
+
+function formatReminderDate_(date) {
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), "EEEE, MMMM d, yyyy 'at' h:mm a");
 }
 
 function normalizeReminderRequest_(request) {
