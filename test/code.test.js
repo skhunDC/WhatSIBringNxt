@@ -448,9 +448,12 @@ test('HTML renders the portrait kiosk shell immediately without a blocking works
   assert.match(index, /This weekend/);
   assert.match(index, /Next week/);
   assert.match(index, /id="cancelReminderButton"/);
+  assert.match(index, /role="dialog"/);
+  assert.match(index, /aria-modal="true"/);
+  assert.match(index, /id="modalBackdrop"/);
   assert.doesNotMatch(index, /primary-cta/);
-  assert.match(scripts, /revealResultPanel/);
-  assert.match(scripts, /scrollIntoView/);
+  assert.match(scripts, /openResultModal/);
+  assert.match(scripts, /handleModalKeydown/);
 });
 
 test('CSS locks the primary experience to a portrait touchscreen kiosk frame', () => {
@@ -461,7 +464,7 @@ test('CSS locks the primary experience to a portrait touchscreen kiosk frame', (
   assert.match(styles, /--font-headline:/);
   assert.match(styles, /--card-min-height:/);
   assert.match(styles, /min-height:\s*100vh/);
-  assert.match(styles, /grid-template-rows:\s*20svh 55svh 25svh/);
+  assert.match(styles, /grid-template-rows:\s*22svh minmax\(0, 1fr\)/);
   assert.match(styles, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(styles, /--tap:\s*clamp\(56px, calc\(72px \* var\(--display-scale\)\), 82px\)/);
   assert.match(styles, /touch-action:\s*manipulation/);
@@ -469,7 +472,7 @@ test('CSS locks the primary experience to a portrait touchscreen kiosk frame', (
   assert.doesNotMatch(styles, /grid-template-columns:\s*repeat\(3/);
 });
 
-test('Scripts keep category selection touch-first with selected state, checklist reveal, and no keyboard dependency', () => {
+test('Scripts keep category selection touch-first with selected state, modal checklist reveal, and no keyboard dependency', () => {
   const scripts = fs.readFileSync(path.join(__dirname, '..', 'scripts.html'), 'utf8');
   assert.match(scripts, /card\.type = 'button'/);
   assert.match(scripts, /addEventListener\('click'/);
@@ -487,8 +490,9 @@ test('Scripts keep category selection touch-first with selected state, checklist
   assert.match(scripts, /startReminderTimeout/);
   assert.match(scripts, /state\.reminderRequestId/);
   assert.match(scripts, /clearReminderEmail/);
-  assert.match(scripts, /revealResultPanel\(\)/);
-  assert.match(scripts, /panel\.scrollIntoView/);
+  assert.match(scripts, /openResultModal\(\)/);
+  assert.match(scripts, /panel\.hidden = false/);
+  assert.match(scripts, /resetResult\('modal_closed'\)/);
   assert.doesNotMatch(scripts, /prompt\(/);
   assert.match(scripts, /reminderDate/);
 });

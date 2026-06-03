@@ -26,7 +26,8 @@
     loadingLogged: false,
     reminderSubmitting: false,
     reminderTimeout: 0,
-    reminderRequestId: 0
+    reminderRequestId: 0,
+    lastFocusedElement: null
   };
 
   function clampNumber(value, min, max) {
@@ -440,27 +441,77 @@
     });
   }
 
-  function revealResultPanel() {
+  function getModalFocusableElements() {
     var panel = byId('resultPanel');
-    if (!panel || !panel.scrollIntoView) {
+    if (!panel || panel.hidden) {
+      return [];
+    }
+    var selector = 'button:not([disabled]):not([hidden]), input:not([disabled]):not([hidden]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    return Array.prototype.filter.call(panel.querySelectorAll(selector), function(element) {
+      return element.offsetParent !== null && !element.matches('.reminder-date-buttons input');
+    });
+  }
+
+  function openResultModal() {
+    var panel = byId('resultPanel');
+    if (!panel) {
+      return;
+    }
+    if (panel.hidden) {
+      state.lastFocusedElement = document.activeElement;
+    }
+    panel.hidden = false;
+    document.body.classList.add('modal-open');
+    window.requestAnimationFrame(function() {
+      var closeButton = byId('closeModalButton');
+      if (closeButton) {
+        closeButton.focus();
+      }
+    });
+  }
+
+  function hideResultModal() {
+    var panel = byId('resultPanel');
+    if (panel) {
+      panel.hidden = true;
+    }
+    document.body.classList.remove('modal-open');
+    if (state.lastFocusedElement && state.lastFocusedElement.focus) {
+      state.lastFocusedElement.focus();
+    }
+    state.lastFocusedElement = null;
+  }
+
+  function handleModalKeydown(event) {
+    var panel = byId('resultPanel');
+    if (!panel || panel.hidden) {
       return;
     }
 
-    window.requestAnimationFrame(function() {
-      var mode = document.body.dataset.displayMode || detectDisplayMode();
-      var width = window.innerWidth;
-      var viewportHeight = window.innerHeight;
-      var rect = panel.getBoundingClientRect();
-      var panelIsClipped = rect.top < 0 || rect.bottom > viewportHeight;
-      var shouldScroll = mode === 'mobile' || width <= 700 || panelIsClipped;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      resetResult('modal_closed');
+      return;
+    }
 
-      if (shouldScroll) {
-        panel.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }
-    });
+    if (event.key !== 'Tab') {
+      return;
+    }
+
+    var focusable = getModalFocusableElements();
+    if (!focusable.length) {
+      event.preventDefault();
+      return;
+    }
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   function scrollToPageTop() {
@@ -508,7 +559,7 @@
     byId('openReminderButton').hidden = false;
     byId('resultCard').classList.remove('is-empty');
     byId('resultCard').classList.add('has-result');
-    revealResultPanel();
+    openResultModal();
     logAction('category_selected', category.id);
     logAction('checklist_viewed', category.id);
     resetInactivityTimer();
@@ -531,6 +582,7 @@
     closeReminderForm();
     byId('resultCard').classList.add('is-empty');
     byId('resultCard').classList.remove('has-result');
+    hideResultModal();
     if (reason && previousCategoryId) {
       logAction(reason, previousCategoryId);
     }
@@ -554,6 +606,21 @@
       });
     }
 
+    var closeModalButton = byId('closeModalButton');
+    if (closeModalButton) {
+      closeModalButton.addEventListener('click', function() {
+        resetResult('modal_closed');
+      });
+    }
+
+    var modalBackdrop = byId('modalBackdrop');
+    if (modalBackdrop) {
+      modalBackdrop.addEventListener('click', function() {
+        resetResult('modal_closed');
+      });
+    }
+
+    document.addEventListener('keydown', handleModalKeydown);
 
     var openReminderButton = byId('openReminderButton');
     if (openReminderButton) {

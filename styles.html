@@ -77,7 +77,7 @@ h1, h2, h3, p { overflow-wrap: anywhere; }
   max-width: var(--kiosk-width);
   margin: 0 auto;
   display: grid;
-  grid-template-rows: 20svh 55svh 25svh;
+  grid-template-rows: 22svh minmax(0, 1fr);
   gap: clamp(10px, calc(24px * var(--display-scale)), 28px);
   padding: var(--space-shell);
   background:
@@ -263,10 +263,26 @@ h3 {
 .situation-card.is-selected span:last-child { color: rgba(255,255,255,0.82); }
 
 .result-panel {
-  min-height: 0;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+}
+.result-panel[hidden] { display: none !important; }
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 43, 64, 0.62);
+  backdrop-filter: blur(12px);
 }
 .result-card {
-  height: 100%;
+  position: relative;
+  width: min(980px, calc(100vw - 36px));
+  max-height: min(92svh, 1720px);
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
@@ -275,16 +291,39 @@ h3 {
     "copy lists"
     "actions lists";
   gap: clamp(14px, 1.7vw, 24px);
-  padding: var(--space-panel);
+  padding: clamp(20px, calc(38px * var(--display-scale)), 46px);
+  overflow: auto;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: 0 34px 100px rgba(8, 43, 64, 0.32);
   transition: transform 220ms ease, opacity 220ms ease;
 }
+.modal-close-button {
+  position: absolute;
+  top: clamp(12px, 1.5vw, 20px);
+  right: clamp(12px, 1.5vw, 20px);
+  z-index: 2;
+  width: var(--tap);
+  height: var(--tap);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--brand);
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  font-size: clamp(32px, 3.2vw, 44px);
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.modal-close-button:active { transform: scale(0.96); }
+.modal-close-button:focus-visible { outline: 6px solid rgba(185, 139, 75, 0.34); outline-offset: 4px; }
+body.modal-open { overflow: hidden; }
 .result-card.has-result { animation: panelIn 220ms ease both; }
 @keyframes panelIn { from { opacity: 0.72; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-.result-copy { grid-area: copy; }
+.result-copy { grid-area: copy; padding-right: calc(var(--tap) + 12px); }
 .checklist-columns { grid-area: lists; }
 .result-actions { grid-area: actions; }
 .result-copy, .result-actions, .list-block, .save-card, .next-step-card {
@@ -307,7 +346,7 @@ h3 {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 24px;
-  overflow: hidden;
+  overflow: visible;
 }
 ul { margin: 0; padding-left: 1.2em; }
 li {
@@ -521,7 +560,7 @@ li {
   body.mode-kiosk .app-shell,
   body.mode-kiosk .kiosk-frame,
   body.mode-kiosk .kiosk-shell {
-    grid-template-rows: 20svh 55svh 25svh;
+    grid-template-rows: 22svh minmax(0, 1fr);
   }
 }
 
@@ -538,7 +577,7 @@ li {
     width: 100%;
     min-height: 100vh;
     min-height: 100svh;
-    grid-template-rows: auto auto auto;
+    grid-template-rows: auto auto;
     gap: 22px;
     padding: clamp(16px, 5vw, 26px);
     overflow: visible;
@@ -555,8 +594,11 @@ li {
   .situation-card { min-height: 150px; }
   .result-panel { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
   .result-card, .checklist-columns { grid-template-columns: 1fr; }
-  .result-card { height: auto; grid-template-areas: none; }
+  .result-card { height: auto; grid-template-rows: auto; grid-template-areas: none; }
+  .result-card { padding: 76px 22px 24px; }
+  .result-card h2 { font-size: clamp(34px, 9.2vw, 42px); }
   .result-copy, .checklist-columns, .result-actions { grid-area: auto; }
+  .result-copy { padding-right: 0; }
   .save-card { display: none; }
   .reminder-date-buttons, .reminder-form-actions { grid-template-columns: 1fr; }
 }
@@ -610,7 +652,7 @@ body.density-compact .app-shell,
 body.density-compact .kiosk-frame,
 body.density-compact .kiosk-shell {
   min-height: var(--viewport-height);
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto;
   overflow: visible;
 }
 
@@ -630,8 +672,12 @@ body.density-compact .checklist-columns {
 body.mode-mobile .result-card,
 body.density-compact .result-card {
   height: auto;
+  grid-template-rows: auto;
   grid-template-areas: none;
 }
+
+body.mode-mobile .result-card h2,
+body.density-compact .result-card h2 { font-size: clamp(34px, 9.2vw, 42px); }
 
 body.mode-mobile .result-copy,
 body.mode-mobile .checklist-columns,
@@ -642,6 +688,9 @@ body.density-compact .result-actions {
   grid-area: auto;
 }
 
+body.mode-mobile .result-copy,
+body.density-compact .result-copy { padding-right: 0; }
+
 body.mode-mobile .save-card { display: none; }
 body.mode-mobile .reminder-date-buttons,
 body.mode-mobile .reminder-form-actions { grid-template-columns: 1fr; }
@@ -649,6 +698,10 @@ body.mode-mobile .reminder-form-actions { grid-template-columns: 1fr; }
 body.mode-mobile .situation-card { min-height: clamp(126px, calc(150px * var(--display-scale)), 170px); }
 body.density-compact .brand-logo { max-height: 32%; }
 body.density-compact .supporting { font-size: clamp(18px, calc(30px * var(--display-scale)), 34px); }
+
+body.modal-open,
+body.mode-mobile.modal-open,
+body.density-compact.modal-open { overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
